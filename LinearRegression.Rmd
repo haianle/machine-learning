@@ -1,0 +1,131 @@
+
+```{r}
+library(tidyverse)
+library(dslabs)
+library(dplyr)
+library(caret)
+library(ggplot2)
+library(HistData)
+
+galton_heights <- GaltonFamilies %>%
+  filter(childNum ==1 & gender == "male") %>%
+  select(father,childHeight) %>%
+  rename(son = childHeight)
+
+y <-galton_heights$son
+test_index <- createDataPartition(y,times =1, p =0.5, list =FALSE)
+train_set <- galton_heights %>% slice(-test_index)
+test_set <- galton_heights %>% slice(test_index)
+
+avg<- mean(train_set$son)
+mean((avg-test_set$son)^2)
+
+fit <- lm(son ~ father, data = train_set)
+fit$coef
+
+y_hat <- fit$coef[1] + fit$coef[2]*test_set$father
+mean((y_hat-test_set$son)^2)
+```
+```{r}
+y_hat <- predict(fit, test_set)
+mean((y_hat-test_set$son)^2)
+
+# read help files
+?predict.lm
+?predict.glm
+```
+```{r}
+# set.seed(1) # if using R 3.5 or earlier
+set.seed(1, sample.kind="Rounding") # if using R 3.6 or later
+
+n <- 100
+Sigma <- 9*matrix(c(1.0, 0.95, 0.95, 1.0), 2, 2)
+dat <- MASS::mvrnorm(n = 100, c(69, 69), Sigma) %>%
+      data.frame() %>% setNames(c("x", "y"))
+
+set.seed(1, sample.kind="Rounding") # if using R 3.6 or later
+rmse <- replicate(100, {
+	test_index <- createDataPartition(dat$y, times = 1, p = 0.5, list = FALSE)
+	train_set <- dat %>% slice(-test_index)
+	test_set <- dat %>% slice(test_index)
+	fit <- lm(y ~ x, data = train_set)
+ 	y_hat <- predict(fit, newdata = test_set)
+	sqrt(mean((y_hat-test_set$y)^2))
+})
+
+mean(rmse)
+sd(rmse)
+```
+
+```{r}
+# set.seed(1) # if R 3.5 or earlier
+set.seed(1, sample.kind="Rounding") # if R 3.6 or later
+n <- c(100, 500, 1000, 5000, 10000)
+res <- sapply(n, function(n){
+	Sigma <- 9*matrix(c(1.0, 0.5, 0.5, 1.0), 2, 2)
+	dat <- MASS::mvrnorm(n, c(69, 69), Sigma) %>%
+		data.frame() %>% setNames(c("x", "y"))
+	rmse <- replicate(100, {
+		test_index <- createDataPartition(dat$y, times = 1, p = 0.5, list = FALSE)
+		train_set <- dat %>% slice(-test_index)
+		test_set <- dat %>% slice(test_index)
+		fit <- lm(y ~ x, data = train_set)
+		y_hat <- predict(fit, newdata = test_set)
+		sqrt(mean((y_hat-test_set$y)^2))
+	})
+	c(avg = mean(rmse), sd = sd(rmse))
+})
+
+res
+```
+```{r}
+# set.seed(1) # if using R 3.5 or earlier
+set.seed(1, sample.kind="Rounding") # if using R 3.6 or later
+Sigma <- matrix(c(1.0, 0.75, 0.75, 0.75, 1.0, 0.95, 0.75, 0.95, 1.0), 3, 3)
+dat <- MASS::mvrnorm(n = 100, c(0, 0, 0), Sigma) %>%
+	data.frame() %>% setNames(c("y", "x1", "x2"))
+
+set.seed(1, sample.kind="Rounding") # if using R 3.6 or later
+test_index <- createDataPartition(dat$y, times = 1, p = 0.5, list = FALSE)
+train_set <- dat %>% slice(-test_index)
+test_set <- dat %>% slice(test_index)
+fit <- lm(y ~ x1 + x2, data = train_set)
+fit1 <- lm(y ~ x1, data = train_set)
+fit2 <- lm(y ~ x2, data = train_set)
+
+y_hat <- predict(fit, newdata = test_set)
+y_hat1 <- predict(fit1, newdata = test_set)
+y_hat2 <- predict(fit2, newdata = test_set)
+
+sqrt(mean((y_hat-test_set$y)^2))
+sqrt(mean((y_hat1-test_set$y)^2))
+sqrt(mean((y_hat2-test_set$y)^2))
+
+```
+```{r}
+library(dslabs)
+data("heights")
+y <- heights$height
+
+set.seed(2,sample.kind = "Rounding") #if you are using R 3.6 or later
+
+test_index <- createDataPartition(y, times = 1, p = 0.5, list = FALSE)
+train_set <- heights %>% slice(-test_index)
+test_set <- heights %>% slice(test_index)
+
+train_set %>% filter(round(height)==66) %>% summarize(y_hat = mean(sex =="Female"))
+
+heights %>%
+  mutate(x = round(height)) %>%
+  group_by(x) %>%
+  filter(n()>=10) %>%
+  summarize(prop = mean(sex =="Female")) %>%
+  ggplot(aes(x,prop)) + geom_point()
+
+ lm_fit <- mutate(train_set, y = as.numeric(sex == "Female")) %>% lm(y ~height, data = .)
+ p_hat <- predict(lm_fit, test_set)
+ y_hat <- ifelse(p_hat > 0.5, "Female", "Male") %>% factor()
+ confusionMatrix(y_hat, test_set$sex)
+
+```
+
