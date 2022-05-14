@@ -1,0 +1,162 @@
+
+
+```{r}
+library(titanic)    # loads titanic_train data frame
+library(caret)
+library(tidyverse)
+library(rpart)
+
+# 3 significant digits
+options(digits = 3)
+
+# clean the data - `titanic_train` is loaded with the titanic package
+titanic_clean <- titanic_train %>%
+    mutate(Survived = factor(Survived),
+           Embarked = factor(Embarked),
+           Age = ifelse(is.na(Age), median(Age, na.rm = TRUE), Age), # NA age to median age
+           FamilySize = SibSp + Parch + 1) %>%    # count family members
+    select(Survived,  Sex, Pclass, Age, Fare, SibSp, Parch, FamilySize, Embarked)
+```
+```{r}
+set.seed(42, sample.kind = "Rounding")
+test_index <- createDataPartition(titanic_clean$Survived,times =1, p = 0.2, list =FALSE)
+train_set <- titanic_clean %>% slice(-test_index)
+test_set <- titanic_clean %>% slice(test_index)
+
+prop.table(table(train_set$Survived))
+mean(train_set$Survived == 1)
+```
+```{r}
+set.seed(3, sample.kind = "Rounding")
+y_hat <- sample(c(0,1), length(test_set$Survived), replace = TRUE) %>% 
+  factor(levels = levels(test_set$Survived))
+mean(y_hat == test_set$Survived)
+```
+```{r}
+train_set %>% select(Survived, Sex) %>% group_by(Sex) %>% 
+    summarize(survived_rate = mean(Survived ==1)) %>% 
+  filter(Sex == "male") %>% 
+  pull(survived_rate)
+
+sex_model <- ifelse(test_set$Sex == "female", 1, 0) %>%   # predict Survived=1 if female, 0 if male
+  factor(levels = levels(test_set$Survived))
+mean(sex_model == test_set$Survived)    # calculate accuracy
+```
+```{r}
+train_set %>%
+    group_by(Pclass) %>%
+    summarize(Survived = mean(Survived == 1))
+
+class_model <- ifelse(test_set$Pclass == 1, 1, 0) %>%   # predict survival only if first class
+  factor(levels = levels(test_set$Survived))
+mean(class_model == test_set$Survived)    # calculate accuracy    
+```
+```{r}
+train_set %>%
+    group_by(Sex, Pclass) %>%
+    summarize(Survived = mean(Survived == 1)) %>%
+  filter(Survived > 0.5)
+
+sex_class_model <- ifelse(test_set$Sex == "female" & (test_set$Pclass %in% c(1,2)), 1, 0) %>%
+  factor(levels = levels(test_set$Survived))
+mean(sex_class_model == test_set$Survived)    # calculate accuracy  
+```
+```{r}
+confusionMatrix(data = sex_model, reference = test_set$Survived)
+confusionMatrix(data = class_model, reference = test_set$Survived)
+confusionMatrix(data = sex_class_model, reference = test_set$Survived)
+```
+```{r}
+F_meas(data = sex_model, reference = test_set$Survived)
+F_meas(data = class_model, reference = test_set$Survived)
+F_meas(data = sex_class_model, reference = test_set$Survived)
+```
+```{r}
+library(caret)
+
+set.seed(1,sample.kind = "Rounding")
+train_lda <- train(Survived ~ Fare, method = "lda", data = train_set)
+y_hat_lda <- predict(train_lda, test_set)
+confusionMatrix(y_hat_lda, test_set$Survived)$overall["Accuracy"]
+
+set.seed(1,sample.kind = "Rounding")
+train_qda <- train(Survived ~ Fare, method = "qda", data = train_set)
+y_hat_qda <- predict(train_lda, test_set)
+mean(y_hat_qda == test_set$Survived)
+```
+```{r}
+set.seed(1,sample.kind = "Rounding")
+train_glm <- train(Survived ~ Age, method = "glm", data = train_set)
+y_glm_age <- predict(train_glm, test_set)
+confusionMatrix(y_glm_age, test_set$Survived)$overall["Accuracy"]
+
+set.seed(1,sample.kind = "Rounding")
+train_glm <- train(Survived ~ Sex + Pclass + Fare + Age, method = "glm", data = train_set)
+y_glm <- predict(train_glm, test_set)
+mean(y_glm == test_set$Survived)
+
+set.seed(1,sample.kind = "Rounding")
+train_glm <- train(Survived ~ ., method = "glm", data = train_set)
+y_glm_all <- predict(train_glm, test_set)
+mean(y_glm_all == test_set$Survived)
+
+```
+```{r}
+set.seed(6,sample.kind = "Rounding")
+train_knn <- train(Survived ~ ., method = "knn", 
+                   data = train_set,
+                   tuneGrid = data.frame( k = seq(3,51,2)))
+ggplot(train_knn,highlight = TRUE)
+train_knn$bestTune
+train_knn$finalModel
+confusionMatrix(predict(train_knn,test_set, type = "raw"), test_set$Survived)$overall["Accuracy"]
+
+```
+```{r}
+set.seed(8,sample.kind = "Rounding")
+control <- trainControl(method = "cv", number = 10, p = 0.9)
+train_knn_cv <- train(Survived ~ ., method = "knn", 
+                   data = train_set,
+                   tuneGrid = data.frame( k = seq(3,51,2)),
+                   trControl = control)
+train_knn_cv$bestTune
+ggplot(train_knn_cv,highlight = TRUE)
+confusionMatrix(predict(train_knn_cv,test_set, type = "raw"), test_set$Survived)$overall["Accuracy"]
+```
+```{r}
+library(rpart)
+set.seed(10,sample.kind = "Rounding")
+fit <- train(Survived ~ ., method = "rpart",
+                      data = train_set,
+                      tuneGrid = data.frame(cp = seq(0, 0.05, 0.002))
+                      )
+fit$bestTune
+ggplot(fit, highlight = TRUE)
+mean(predict(fit,test_set) == test_set$Survived)
+
+plot(fit$finalModel, margin = 0.1)
+text(fit$finalModel)
+
+```
+```{r}
+library(randomForest)
+set.seed(14,sample.kind = "Rounding")
+fit_rf <-  train(Survived ~ ., method = "rf",
+                data = train_set,
+                tuneGrid = data.frame(mtry = seq(1:7)),
+                ntree = 100
+                )
+ggplot(fit_rf, highlight = TRUE)
+mean(predict(fit_rf,test_set) == test_set$Survived)
+
+fit$finalModel$mtry
+
+imp <- varImp(fit_rf)
+
+
+
+```
+
+
+
+
