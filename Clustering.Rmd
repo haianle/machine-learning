@@ -1,0 +1,70 @@
+
+
+```{r}
+library(dslabs)
+library(tidyverse)
+data("movielens")
+
+top <- movielens %>%
+  group_by(movieId) %>%
+  summarize(n=n(), title = first(title)) %>%
+  top_n(50, n) %>%
+  pull(movieId)
+
+
+x <- movielens %>% 
+  filter(movieId %in% top) %>%
+  group_by(userId) %>%
+  filter(n() >= 25) %>%
+  ungroup() %>% 
+  select(title, userId, rating) %>%
+  spread(userId, rating)
+
+row_names <- str_remove(x$title, ": Episode") %>% str_trunc(20)
+x <- x[,-1] %>% as.matrix()
+x <- sweep(x, 2, colMeans(x, na.rm = TRUE))
+x <- sweep(x, 1, rowMeans(x, na.rm = TRUE))
+rownames(x) <- row_names
+
+d<- dist(x)
+```
+```{r}
+h <- hclust(d)
+plot(h, cex = 0.65, main = "", xlab = "")
+
+groups <- cutree(h,k = 10)
+plot(groups)
+
+names(groups)[groups ==9]
+```
+```{r}
+x_0 <- x 
+x_0[is.na(x_0)] <- 0
+k <- kmeans(x_0, centers = 10, nstart =25)
+
+groups <- k$cluster
+
+
+```
+```{r}
+data("tissue_gene_expression")
+x <- sweep(tissue_gene_expression$x, 2, colMeans(tissue_gene_expression$x))
+h_1 <- hclust(dist(x))
+h_2 <- hclust(dist(t(x)))
+
+image(x[h_1$order, h_2$order])
+
+heatmap(x, col = RColorBrewer::brewer.pal(11, "Spectral"))
+```
+```{r}
+library(matrixStats)
+sds <- colSds(x, na.rm = TRUE)
+o <- order(sds, decreasing = TRUE)[1:25]
+heatmap(x[,o], col = RColorBrewer::brewer.pal(11, "Spectral"))
+```
+```{r}
+
+```
+
+
+
