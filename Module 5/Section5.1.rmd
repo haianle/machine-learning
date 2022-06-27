@@ -1,0 +1,293 @@
+---
+title: "Module 5.1 Feature Generation and Selection: Introduction"
+output: html_notebook
+---
+
+Run CHUNK 1 to load some packages that will be used later in this section.
+
+```{r echo = FALSE}
+#CHUNK 1
+# Required libraries
+library(ggplot2)
+library(gridExtra)
+library(scatterplot3d)
+```
+
+
+
+```{r echo = FALSE}
+#CHUNK 2
+df <- data.frame(target = c(1.5,1,2.2,1.9), 
+                 var = c(1,2.2,1,2.5), 
+                 feature = c(0.8,0.5,1.2,0.9),
+                 col = c("Data Point 1", "Data Point 2", "Data Point 3", "Data Point 4"))
+
+p1 <- ggplot(data = df, aes(x = var, y = target, color = col)) +
+  geom_point(size = 3) +
+  scale_x_continuous(limits = c(0,3)) +
+  scale_y_continuous(limits = c(0,3)) +
+  ggtitle("Input space")
+
+
+p2 <- ggplot(data = df, aes(x = feature, y = target, color = col)) +
+  geom_point(size = 3) +
+  scale_x_continuous(limits = c(0,1.5)) +
+  scale_y_continuous(limits = c(0,3)) +
+  ggtitle("Feature space")
+
+
+grid.arrange(p1,p2,ncol = 2)
+
+
+
+```
+
+Run CHUNKS 3A and 3B to see the effect of increasing dimensions without increasing the number of data points.
+
+```{r echo = FALSE}
+#CHUNK 3A
+df <- data.frame(x1 = runif(30), x2 = runif(30), x3 = runif(30))
+
+p1 <- ggplot(data = df, aes(x = x1, y = 1)) +
+  geom_point() +
+  annotate("segment", x = 0, xend = 0, y = 0.5, yend = 1.5) +
+  annotate("segment", x = 0.2, xend = 0.2, y = 0.5, yend = 1.5) +
+  annotate("segment", x = 0.4, xend = 0.4, y = 0.5, yend = 1.5) +
+  annotate("segment", x = 0.6, xend = 0.6, y = 0.5, yend = 1.5) +
+  annotate("segment", x = 0.8, xend = 0.8, y = 0.5, yend = 1.5) +
+  annotate("segment", x = 1, xend = 1, y = 0.5, yend = 1.5) +
+  theme(axis.title.x=element_blank(),
+        axis.title.y=element_blank(),
+        axis.text.y=element_blank(),
+        axis.ticks.y=element_blank()) +
+  ggtitle("1D - 5 Regions")
+
+p2 <- ggplot(data = df, aes(x = x1, y = x2)) +
+  geom_point() +
+  annotate("segment", x = 0, xend = 0, y = 0, yend = 1) +
+  annotate("segment", x = 0.2, xend = 0.2, y = 0, yend = 1) +
+  annotate("segment", x = 0.4, xend = 0.4, y = 0, yend = 1) +
+  annotate("segment", x = 0.6, xend = 0.6, y = 0, yend = 1) +
+  annotate("segment", x = 0.8, xend = 0.8, y = 0, yend = 1) +
+  annotate("segment", x = 1, xend = 1, y = 0, yend = 1) +
+  annotate("segment", x = 0, xend = 1, y = 0, yend = 0) +
+  annotate("segment", x = 0, xend = 1, y = 0.2, yend = 0.2) +
+  annotate("segment", x = 0, xend = 1, y = 0.4, yend = 0.4) +
+  annotate("segment", x = 0, xend = 1, y = 0.6, yend = 0.6) +
+  annotate("segment", x = 0, xend = 1, y = 0.8, yend = 0.8) +
+  annotate("segment", x = 0, xend = 1, y = 1, yend = 1) +
+  theme(axis.title.x=element_blank(),
+        axis.title.y=element_blank()) +
+  ggtitle("2D - 25 Regions")
+
+grid.arrange(p1,p2,ncol=2)
+
+```
+
+```{r echo = FALSE}
+#CHUNK 3B
+scatterplot3d(df$x1, df$x2, df$x3, xlab = "", ylab = "", zlab = "", lab = c(4,4), lab.z = 4, main = "3D - 125 Regions")
+```
+
+
+Consider a simple example of an exponential curve in two dimensional space.
+
+```{r echo=FALSE}
+#CHUNK 4A
+x1 <- runif(100, 1,10)
+x2 <- exp(x1)
+df <- data.frame(x1 = x1, x2 = x2)
+
+p1 <- ggplot(data = df, aes(x = x1, y = x2)) + geom_point()
+p1
+```
+
+CHUNK 4B checks out a log transform.
+
+```{r echo = FALSE}
+#CHUNK 4B
+df$logx2 <- log(df$x2)
+p1 <- ggplot(data = df, aes(x = x1, y = logx2)) + geom_point()
+p1
+```
+
+CHUNK 5 provides an example of simple classification problem.
+
+```{r echo = FALSE}
+#CHUNK 5
+df <- data.frame(x1 = c(1,2,1.5,3,3.5,3.5),
+                 x2 = c(2,1.5,3,3,3.5,3.9),
+                 class = c("A", "A", "A", "B", "B", "B"))
+
+p1 <- ggplot(data = df, aes(x = x1, y = x2, color = class)) +
+      geom_point(size = 5) +
+      scale_x_continuous(limits = c(0.5,4)) +
+      scale_y_continuous(limits = c(0.5,4)) +
+      annotate("segment", x = 1.5, xend = 3.5, y = 4, yend = 1, size = 2)
+p1
+
+```
+
+Run CHUNK 6 to see the data for a more complex classification problem. You will note that the formula for separating A and B makes it clear that a circle is the best divider. But you wouldn't know that if you only had the data and some noise had been added.
+
+```{r echo = FALSE}
+#CHUNK 6
+x1 <- runif(1000,-1,1)
+x2 <- runif(1000,-1,1)
+class <- ifelse(sqrt(x1^2 +x2^2) < 0.5, "A","B")
+
+df <- data.frame(x1 = x1, x2 = x2, class = class)
+
+p1 <- ggplot(data = df, aes(x = x1, y = x2, color = class)) +
+      geom_point() 
+p1
+```
+
+Run CHUNK 7 to see the value of a feature for this problem.
+
+```{r echo = FALSE}
+#CHUNK 7
+df$dist_from_0 <- sqrt(df$x1^2 + df$x2^2)
+      
+p2 <- ggplot(data = df, aes(x = 0, y = dist_from_0, color = class)) +
+      geom_point(position = "jitter") +
+      theme(axis.title.x=element_blank(),
+                axis.text.x=element_blank(),
+                axis.ticks.x=element_blank()) +
+      annotate("segment", x = -0.5, xend = 0.5, y = 0.5, yend = 0.5)
+
+p2
+
+library(scatterplot3d)
+p3 <- scatterplot3d(df$x1, df$x2, df$dist_from_0, color = ifelse((df$class == "B"), "blue", "red"))
+
+```
+
+Trivial example of a feature being equal to an input variable.
+
+```{r echo = FALSE} 
+#CHUNK 8
+df <- data.frame(variable_Income = c(100000, 130000, 95000), feature_Income = c(100000, 130000, 95000))
+df
+```
+
+An example of converting dates (input variable) to features, such as day of the week or weekday/weekend.
+
+```{r echo = FALSE}
+#CHUNK 9
+df <- data.frame(variable_date = c("1/8/2017", "12/7/2016", "12/17/2016"),
+                 feature_day = c("Sunday", "Wednesday", "Saturday"),
+                 feature_dayType = c("Weekend", "Weekday", "Weekend"))
+df
+```
+   
+An example of creating more than one feature from a single variable.
+
+```{r echo = FALSE}
+#CHUNK 10
+df <- data.frame(variable_occupation = c("Pediatric Nurse", "Neurosurgeon", "Carpenter"),
+                 feature_occupation_medical = c("TRUE", "TRUE", "FALSE"),
+                 feature_occupation_labor = c("FALSE", "FALSE", "TRUE"))
+df
+```
+   
+An example of combining multiple variables into a single factor.
+    
+```{r}
+#CHUNK 11
+df <- data.frame(variable_sex = c("Female", "Male", "Male"),
+                 variable_smoker = c("Non-Smoker", "Non-Smoker", "Smoker"),
+                 feature_sex_smoker = c("Female Non-Smoker", "Male Non-Smoker", "Male Smoker"))
+df
+```
+
+The next chunks are part of a lengthy exercise using the SOA mortality data that you have previously downloaded. This is a large dataset and may take some time to load.
+
+1. Load and summarize the data
+
+This code also creates the target varaible and eliminates the rows in which the target is undefined. You may want to save it with a new name for future use, particularly if you do not complete this session in one sitting. There is code for this in the final chunk in this file.
+
+```{r}
+#CHUNK 12
+data.mortality <- read.csv("soa_mortality_data.csv")
+data.mortality$actual_q <- data.mortality$actual_face / data.mortality$exposure_face
+data.mortality <- subset(data.mortality, exposure_face > 0)
+nrow(data.mortality)
+summary(data.mortality)
+```
+
+2. Data transformations
+
+CHUNK 13 has some suggested transformations. Consider adding others as you develop potential features for this dataset.
+
+```{r}
+#CHUNK 13
+# Log transform example
+data.mortality$duration_log <- log(data.mortality$duration)
+
+# Normalization example
+
+data.mortality$issage_norm <- (data.mortality$issage - min(data.mortality$issage)) / (max(data.mortality$issage - min(data.mortality$issage)))
+
+# Binned versions of variables example
+
+data.mortality$issage_bin10 <- cut(data.mortality$issage, 10)
+data.mortality$issage_bin20 <- cut(data.mortality$issage, 20, labels = FALSE) # Note the difference between using labels or not
+
+```
+
+3. Binarization
+Use CHUNK 14 to create binarized features for all categorical variables except for state.
+    
+CHUNK 15 provides a sample solution.
+    
+```{r}
+#CHUNK 14
+
+## Your code here
+
+```
+
+CHUNK 15 has a sample solution.
+
+```{r}
+#CHUNK 15
+library(caret)
+
+# List the variables we want to binarize
+vars.bin <- c("sex", "smoker", "prodcat", "region", "distchan", "uwkey", "uwtype", "resind_ind")
+
+# dummyVars is not compatible with factors
+for (var in vars.bin) {
+  data.mortality[, var] <- as.character(data.mortality[, var])
+}
+
+# Binarize variables
+binarizer <- caret::dummyVars(paste("~", paste(vars.bin, collapse = "+")) , data = data.mortality, fullRank = F)
+data.mortality <- cbind(data.mortality,
+                        data.frame(predict(binarizer, newdata = data.mortality)))
+
+```
+
+4. Compound variables
+
+CHUNK 16 has a sample solution for creating two compound variables.
+  
+```{r}
+#CHUNK 16
+data.mortality$smoker_sex <- paste(data.mortality$smoker, data.mortality$sex, sep = "_")
+data.mortality$smoker_sex_uwtype <- paste(data.mortality$smoker, data.mortality$sex, data.mortality$uwtype, sep = "_")
+
+```
+
+CHUNK 17 has space to create additional variables and also to save the revised file under a new name. Note that future module sections may use the original dataset name and you may wish to modify the code to load this one.
+
+```{r}
+#CHUNK 17
+#Add code to create any desired adiditonal features
+
+
+
+write.csv(data.mortality, file="mortality data with features.csv")
+```
+

@@ -1,0 +1,95 @@
+---
+title: "Exercise 5.3.4
+"
+output: html_document
+---
+
+```{r}
+
+# Load data and take a quick look at the summary
+data.all <- read.csv("../BreastCancerWisconsinDataSet.csv")
+#summary (data.all)
+
+ # set the target 
+data.all$target [data.all$diagnosis == "M"] = 1
+data.all$target [data.all$diagnosis == "B"] = 0
+# This is to force the logistic regression to predict 0/1
+data.all$target <- as.factor(data.all$target)
+ # all variables available for training
+data.all <- data.all[, setdiff(colnames(data.all), c("diagnosis", "X", "id"))]
+
+#define Min-Max normalization function
+#min_max_norm <- function(x) { (x - min(x)) / (max(x) - min(x))  }
+
+#apply to data.all 
+#data.all <- as.data.frame(lapply(data.all, min_max_norm))
+
+
+ # split data into training vs validation sets
+library(caret)
+library(glmnet)
+set.seed(1000)
+
+training.indices <- createDataPartition(data.all$target, p = 0.8, list = FALSE)
+data.train <- data.all[training.indices, ] 
+data.test <- data.all[-training.indices, ]
+```
+```{r}
+
+#Place the X values in a matrix (required for the glmnet function)
+X_train <- model.matrix(target ~.,  data = data.train)
+#X <-as.matrix(data.train[,1:30])
+y_train <- data.train$target
+
+#For each alpha, models from the given range of lambdas 
+alphalist <- seq(0,1,by=0.1)
+n <- length(alphalist)
+ld <- c(0,0.01,0.1,1,10)
+cv_alpha <- lapply(alphalist, function(a){
+  cv.glmnet(X_train, y_train, nfolds = 5, alpha=a, lambda=ld, family="binomial")
+})
+
+#print out  the least mean cross-validation error (mcv)
+for (i in 1:n) {print(min(cv_alpha[[i]]$cvm))}
+
+#get  the lambda corresponding to the minimum mcv
+lambda_1se <- sapply(c(1:n), function(i) cv_alpha[[i]]$lambda.1se)
+mytable <- data.frame(alpha = alphalist, lambda = lambda_1se)
+
+
+X_test <- model.matrix(target ~.,  data = data.test)
+mypredict <- data.frame(predict(cv_alpha, newx = X_test, type="response"))
+mypredict.classes <- ifelse(mypredict > 0.5, 1, 0)
+mymean <- sapply(c(1:n), function(i) mean(mypredict.classes[,i] == data.test$target))
+mytable <- cbind(mytable,mymean)
+                 
+
+
+model.lm <- glmnet(X, y = data.train$target,family = "binomial", alpha = 1, lambda = 0.01)
+probabilities <- predict(model.lm, newx = X)
+predicted.classes <- ifelse(probabilities > 0.5, 1, 0)
+mean(predicted.classes == data.training$target)
+
+pred <- predict(model.lm, newx = X_test, type = "response")
+pred.classes <- ifelse(pred > 0.5, 1, 0)
+mean(pred.classes == data.test$target)
+
+```
+
+
+```{r}
+ld <- c(0,0.01,0.1,1,10)
+mdl <- function(ld){
+  model.lm <- glmnet(X_train, y = data.train$target,family = "binomial", alpha = 1, lambda = ld)
+  
+}
+model.list <-lapply(ld, mdl)
+betalist <- as.data.frame(lapply(c(1:5), function(i) as.matrix(model.list[[i]]$beta)))
+predlist <- as.data.frame(lapply(model.list, function(model) predict(model, newx = X_test, type="response")))
+classlist<- as.data.frame(ifelse(predlist > 0.5, 1, 0))
+results1 <- as.data.frame(lapply(classlist, function(class) mean(class == data.test$target)))
+
+```
+```{r}
+data.frame(mypredict[,10], predlist[,2])
+```

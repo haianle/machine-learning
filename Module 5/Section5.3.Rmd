@@ -1,0 +1,310 @@
+---
+title: "Section 5.3 Optimization and algorithmic methods for feature selection"
+output: html_notebook
+---
+
+Run CHUNK 1 to generate some random data and fit a simple linear regression model.
+
+```{r echo = FALSE}
+#CHUNK 1
+x <- runif(50, 1, 10) #Note that no seed is set
+y <- 1.5*x + rnorm(50,0,2) + 1 #We know the true model is y = 1.5x + 1 and the errors are independent and have a normal distribution
+
+plot(y~x) #Makes a scatterplot of the data
+
+model <- lm(y~x) #Runs the linear regression model
+
+abline(model) #Adds the regression line to the plot
+
+model #Shows the estimated coefficients
+```
+
+Begin the example by running CHUNK 2 to create and plot a simple dataset.
+
+```{r echo = FALSE}
+#CHUNK 2
+library(ggplot2)
+df <- data.frame(x = seq(-1, 1, 0.3), y = c(2,1.1,0.7,0.95,0.4,-0.1, -0.05))
+
+ggplot(data = df, aes(x = x, y = y)) + geom_point(color = "blue", size = 3)
+```
+
+Run CHUNK 3 to add the desired features to the dataframe.
+
+```{r}
+#CHUNK 3
+df$X1 = df$x
+df$X2 = df$x^2
+df$X3 = df$x^3
+df$X4 = df$x^4
+df$X5 = df$x^5
+df$X6 = df$x^6
+
+df
+```
+
+Run CHUNK 4 to obtain the ordinary least squares fit, using the glmnet package.
+
+```{r}
+#CHUNK 4
+library(glmnet)
+
+#Place the X values in a matrix (required for the glmnet function)
+X <-as.matrix(df[,3:8])
+
+# Set up the formula (model form)
+formula.lm <- as.formula("y~X1+X2+X3+X4+X5+X6")
+
+# Fit the model, lambda = 0 forces ordinary least squares and makes alpha irrelevant
+model.lm <- glmnet(X, y = df$y,family = "gaussian", alpha = 0, lambda = 0)
+
+# Predict results (so we can plot the line)
+df$pred <- predict(model.lm, newx = X)
+
+# Plot the results
+p1 <- ggplot(data = df, aes(x = x, y = y)) + geom_point(color = "blue", size = 3) + geom_line(aes(y=df$pred))
+p1
+```
+
+Run CHUNK 5 to view the estimated coefficients.
+
+```{r}
+#CHUNK 5
+model.lm$beta
+```
+
+Run CHUNK 6 to perform ridge regression.
+
+```{r}
+library(glmnet)
+
+#Here is a clever way to create the data matrix. This one doesn't require keeping track of which columns contain the features.
+X <- model.matrix(formula.lm, data = df)
+
+#Lambda has arbitrarily been set to 0.1. Alpha = 0 implies ridge regression (1 implies lasso and anything between is elasticnet). Also, note that the default is to standardize the features, but the estimated coefficients are on the scale and location of the original values.
+model.lm.ridge <- glmnet(X, y = df$y,
+                         family = "gaussian",
+                         alpha = 0,
+                         lambda = 0.1)
+
+# Predict results (so we can plot the line)
+df$pred_ridge01 <- predict(model.lm.ridge, newx = X)
+
+# Plot the results
+p1 <- ggplot(data = df, aes(x = x, y = y)) + geom_point(color = "blue", size = 3) + geom_line(aes(y=df$pred_ridge01))
+p1
+```
+
+Run CHUNK 7 to see the coefficients.
+
+```{r}
+#CHUNK 7
+model.lm.ridge$beta
+```
+
+What happens when we change the value for lambda? Run CHUNK 8 to find out.
+
+```{r}
+#CHUNK 8
+library(gridExtra)
+model.lm.ridge00 <- glmnet(X, y = df$y,family = "gaussian", alpha = 0, lambda = 0)
+model.lm.ridge01 <- glmnet(X, y = df$y,family = "gaussian", alpha = 0, lambda = 0.1)
+model.lm.ridge05 <- glmnet(X, y = df$y,family = "gaussian", alpha = 0, lambda = 0.5)
+model.lm.ridge1 <- glmnet(X, y = df$y,family = "gaussian", alpha = 0, lambda = 1)
+model.lm.ridge10 <- glmnet(X, y = df$y,family = "gaussian", alpha = 0, lambda = 10)
+
+df$pred_ridge00 <- predict(model.lm.ridge00, newx = X)
+df$pred_ridge01 <- predict(model.lm.ridge01, newx = X)
+df$pred_ridge05 <- predict(model.lm.ridge05, newx = X)
+df$pred_ridge1 <- predict(model.lm.ridge1, newx = X)
+df$pred_ridge10 <- predict(model.lm.ridge10, newx = X)
+
+p1 <- ggplot(data = df, aes(x = x, y = y)) + geom_point(color = "blue", size = 3) + geom_line(aes(y=df$pred_ridge00)) + ggtitle("lambda = 0")
+p2 <- ggplot(data = df, aes(x = x, y = y)) + geom_point(color = "blue", size = 3) + geom_line(aes(y=df$pred_ridge01)) + ggtitle("lambda = 0.1")
+p3 <- ggplot(data = df, aes(x = x, y = y)) + geom_point(color = "blue", size = 3) + geom_line(aes(y=df$pred_ridge05)) + ggtitle("lambda = 0.5")
+p4 <- ggplot(data = df, aes(x = x, y = y)) + geom_point(color = "blue", size = 3) + geom_line(aes(y=df$pred_ridge1)) + ggtitle("lambda = 1")
+p5 <- ggplot(data = df, aes(x = x, y = y)) + geom_point(color = "blue", size = 3) + geom_line(aes(y=df$pred_ridge10)) + ggtitle("lambda = 10")
+
+grid.arrange(p1,p2,ncol=2)
+grid.arrange(p3,p4,ncol=2)
+grid.arrange(p5,ncol=2)
+
+
+```
+
+And the coefficients are produced in CHUNK 9.
+
+```{r}
+#CHUNK 9
+model.lm.ridge00$beta
+model.lm.ridge01$beta
+model.lm.ridge05$beta
+model.lm.ridge1$beta
+model.lm.ridge10$beta
+```
+
+CHUNK 10 is used to make an interesting graph, to explain the difference between ridge and lasso.
+
+```{r echo = FALSE}
+#CHUNK 10
+x <- seq(-1.5,1.5,0.1)
+penalties <- data.frame(beta = x,
+                     penalty = x^2,
+                     abs = abs(x))
+
+ggplot(data = penalties, aes(x = beta)) +
+  geom_line(aes(y = penalty), color = "red") +
+  geom_line(aes(y = abs), color = "blue") +
+  geom_line(aes(y = 1)) +
+  annotate("rect", xmin = -Inf, xmax = Inf, ymin = -Inf, ymax = 1, fill = "blue", alpha = 0.2) + 
+  annotate("rect", xmin = -Inf, xmax = Inf, ymin = 1, ymax = Inf, fill = "red", alpha = 0.2) +
+  annotate("text", x = -1.4, y = 1.2, label = "L1 norm", color = "blue") + 
+  annotate("text", x = -1.1, y = 1.7, label = "L2 norm", color = "red") +
+  annotate("text", x = 0, y = 1.3, label = "L2 penalty > L1 penalty", color = "black") +
+  annotate("text", x = 0, y = 0.7, label = "L1 penalty > L2 penalty", color = "black") +
+  ggtitle("L1 penalty vs L2 penalty")
+```
+
+
+CHUNK 11 performs lasso and ridge regressions on the seven-point data set.
+
+```{r}
+#CHUNK 11
+library(glmnet)
+
+X <- model.matrix(formula.lm, data = df)
+
+model.lm.ridge <- glmnet(X, y = df$y,family = "gaussian", alpha = 0, lambda = 0.1)
+model.lm.lasso <- glmnet(X, y = df$y,family = "gaussian", alpha = 1, lambda = 0.1)
+
+# Predict results (so we can plot the line)
+df$pred_ridge01 <- predict(model.lm.ridge, newx = X)
+df$pred_lasso01 <- predict(model.lm.lasso, newx = X)
+
+# Plot the results
+p1 <- ggplot(data = df, aes(x = x, y = y)) + geom_point(color = "blue", size = 3) + geom_line(aes(y=df$pred_ridge01)) + ggtitle("Ridge - lambda = 0.1")
+p2 <- ggplot(data = df, aes(x = x, y = y)) + geom_point(color = "blue", size = 3) + geom_line(aes(y=df$pred_lasso01)) + ggtitle("Lasso - lambda = 0.1")
+
+grid.arrange(p1,p2,ncol=2)
+```
+
+CHUNK 12 provides the coefficients.
+
+```{r}
+#CHUNK 12
+model.lm.ridge$beta
+model.lm.lasso$beta
+```
+
+CHUNK 13 makes a picture that illustrates the various penalty funcitons.
+
+```{r echo = FALSE}
+x <- seq(-1.5,1.5,0.1)
+penalties <- data.frame(beta = x,
+                     penalty = x^2,
+                     abs = abs(x),
+                     el025 = 0.25*abs(x)+0.75*x^2,
+                     el075 = 0.75*abs(x)+0.25*x^2)
+
+ggplot(data = penalties, aes(x = beta)) +
+  geom_line(aes(y = penalty), color = "red") +
+  geom_line(aes(y = abs), color = "blue") +
+  geom_line(aes(y = el025), color = "green") +
+  geom_line(aes(y = el075), color = "purple") +
+  geom_line(aes(y = 1)) +
+  ggplot2::annotate("rect", xmin = -Inf, xmax = Inf, ymin = -Inf, ymax = 1, fill = "blue", alpha = 0.2) + 
+  ggplot2::annotate("rect", xmin = -Inf, xmax = Inf, ymin = 1, ymax = Inf, fill = "red", alpha = 0.2) +
+  ggplot2::annotate("text", x = -1.4, y = 1.2, label = "L1 norm", color = "blue") + 
+  ggplot2::annotate("text", x = -1.1, y = 1.7, label = "L2 norm", color = "red") +
+  ggplot2::annotate("text", x = 1.1, y = 1.7, label = "EN 0.25", color = "green") +
+  ggplot2::annotate("text", x = 1.4, y = 1.2, label = "EN 0.75", color = "purple") +
+  ggtitle("Lasso penalty vs Ridge penalty vs Elastic Net")
+```
+
+CHUNK 14 runs elastic net regularization on the sample data.
+
+```{r}
+X <- model.matrix(formula.lm, data = df)
+#CHUNK 14
+
+model.lm.ridge <- glmnet(X, y = df$y,family = "gaussian", alpha = 0, lambda = 0.1)
+model.lm.lasso <- glmnet(X, y = df$y,family = "gaussian", alpha = 1, lambda = 0.1)
+model.lm.en025 <- glmnet(X, y = df$y,family = "gaussian", alpha = 0.25, lambda = 0.1)
+model.lm.en075 <- glmnet(X, y = df$y,family = "gaussian", alpha = 0.75, lambda = 0.1)
+
+# Predict results (so we can plot the line)
+df$pred_ridge01 <- predict(model.lm.ridge, newx = X)
+df$pred_lasso01 <- predict(model.lm.lasso, newx = X)
+df$pred_en01025 <- predict(model.lm.en025, newx = X)
+df$pred_en01075 <- predict(model.lm.en075, newx = X)
+
+# Plot the results
+p1 <- ggplot(data = df, aes(x = x, y = y)) + geom_point(color = "blue", size = 3) + geom_line(aes(y=df$pred_ridge01)) + ggtitle("Ridge - lambda = 0.1")
+p2 <- ggplot(data = df, aes(x = x, y = y)) + geom_point(color = "blue", size = 3) + geom_line(aes(y=df$pred_lasso01)) + ggtitle("Lasso - lambda = 0.1")
+p3 <- ggplot(data = df, aes(x = x, y = y)) + geom_point(color = "blue", size = 3) + geom_line(aes(y=df$pred_en01025)) + ggtitle("Elastic Net-lambda=0.1, alpha=0.25")
+p4 <- ggplot(data = df, aes(x = x, y = y)) + geom_point(color = "blue", size = 3) + geom_line(aes(y=df$pred_en01075)) + ggtitle("Elastic Net-lambda=0.1, alpha=0.75")
+
+grid.arrange(p1,p2,ncol=2)
+grid.arrange(p3,p4,ncol=2)
+```
+
+CHUNK 15 displays the coefficients
+
+```{r}
+#CHUNK 15
+model.lm$beta
+model.lm.ridge$beta
+model.lm.lasso$beta
+model.lm.en025$beta
+model.lm.en075$beta
+```
+
+Run CHUNK 16 to do the first step in constructing a decision true for the breast cancer data. The target variable is diagnosis and the initial steps are ones used in earlier sections to get the data ready.
+
+
+```{r echo = FALSE}
+#CHUNK 16
+library(rpart)
+library(rpart.plot)
+library(caret)
+
+# read in the data
+data.all <- read.csv("BreastCancerWisconsinDataSet.csv")
+ # set the target 
+data.all$target [data.all$diagnosis == "M"] = 1
+data.all$target [data.all$diagnosis == "B"] = 0
+data.all$target <- as.factor(data.all$target) # This is to force the logistic regression to predict 0/1
+ # all variables available for training
+
+data.all <- data.all[, setdiff(colnames(data.all), c("diagnosis", "id", "X"))]
+
+ # split data into training vs testing
+set.seed(1000)
+training.indices <- createDataPartition(data.all$target, p = 0.7, list = FALSE)
+data.training <- data.all[training.indices, ] 
+data.testing <- data.all[-training.indices, ]
+
+# Fit the tree
+formula.dt <- as.formula(paste("target~",paste(colnames(data.training[,c(1:30)]),collapse = "+")))
+
+control.dt <- list(maxdepth = 5, cp = 0)
+
+model.dt <- rpart(formula.dt, data = data.training, control = control.dt)
+
+rpart.plot(model.dt)
+```
+
+
+Run CHUNK 17 to see the variable importance output from the decision tree model.
+
+```{r}
+#CHUNK 17
+
+# Use the varImp function from the caret package
+importance <- as.data.frame(varImp(model.dt, competes = FALSE))
+
+# Plot in order
+data.frame(row.names = row.names(importance)[order(importance, decreasing = TRUE)],
+           Importance = importance[order(importance, decreasing = TRUE),])
+
+```

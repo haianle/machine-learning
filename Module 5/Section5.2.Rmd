@@ -1,0 +1,356 @@
+---
+title: "Section 5.2 Feature Generation & Selection - Filter based selection techniques"
+output: html_notebook
+---
+
+Follow the instructions in CHUNK 1 to load and prepare the breast cancer data. The dataset should be in your working directory from previous sections. If you have trouble, a sample solution is in CHUNK 2. 
+
+
+```{r}
+#CHUNK 1
+# Load data and take a quick look at the summary
+
+# Do some simple cleasing and set up as follows:
+ 
+ # set the levels of the target variable (diagnosis) "M" and "B" to 1 and 0 
+
+ # remove "id" and "X" as they are not fit for training
+
+ # split data 50/50 to training/validation as this is a small data set
+
+# you may wonder what about the testing set?! For the purpose of this module, we'll simply assume you already have your testing set hidden somewhere you won't see until the end.  
+
+```
+
+
+```{r}
+#CHUNK 2
+# Load data and take a quick look at the summary
+data.all <- read.csv("BreastCancerWisconsinDataSet.csv")
+summary (data.all)
+
+ # set the target 
+data.all$target [data.all$diagnosis == "M"] = 1
+data.all$target [data.all$diagnosis == "B"] = 0
+
+ # all variables available for training
+data.all <- data.all[, setdiff(colnames(data.all), c("diagnosis", "X", "id"))]
+
+ # split data into training vs validation sets
+library(caret)
+set.seed(1000)
+training.indices <- createDataPartition(data.all$target, p = 0.5, list = FALSE)
+data.training <- data.all[training.indices, ] 
+data.validation <- data.all[-training.indices, ]
+```
+
+
+CHUNK 3 has three examples that generate reandom pairs. All are based on 100 randomly selected x-values from the uniform(0,1) distribution. The y-values are generated according to a specific funtion with an error term added that has a normal distribution.
+
+For Exercise 5.2.4, change the examples to generate other shapes and observe and compare the sample Pearson correlation coefficients.
+  
+```{r}
+#CHUNK 3
+library(gridExtra)
+
+set.seed(1000)
+x <- runif(100)
+
+# Example 1 
+y1 <- 3*x + rnorm(100, 0, 0.2)
+p1 <- qplot(x, y1, main = "3*x", xlab = cor(x, y1))
+
+# Example 2
+y2 <- -(x-0.5)^2 - rnorm(100, 0, 0.01)
+p2 <- qplot(x, y2, main = "-(x-0.5)^2", xlab = cor(x, y2))
+
+# Example 3
+y3 <- sin(x*10) - rnorm(100, 0, 0.25)
+p3 <- qplot(x, y3, main = "sin(x*10)", xlab = cor(x, y3))
+
+grid.arrange(p1, p2, p3, ncol = 3)
+```
+
+
+Let's calculate the Pearson correlation between radius_mean and target in the breast cancer data. Run the R code below (note you should have set up your data.training dataset in the data preparation exercise ealier in this section):
+
+```{r}
+#CHUNK 4
+b.Pearson <- cor(data.training$radius_mean, data.training$target, method = "pearson")
+b.Pearson
+```
+
+CHUNK 5 provides space for completing Exercise 5.2.5 where you are asked to calulate the Pearon correlation for all variables and rank them.
+
+```{r}
+#CHUNK 5
+# Compute the Pearson correlation for all variables
+
+# Rank the variables
+
+# What are your observations?
+
+```
+
+CHUNK 6 contains a sample solution.
+
+```{r}
+#CHUNK 6
+# Compute the Pearson correlation for all variables with the target
+b.Pearson <- cor(data.training, method = "pearson")[ ,c("target")]
+
+# Rank the variables
+b.Pearson <- sort(b.Pearson, decreasing = TRUE)
+
+b.Pearson
+```
+
+
+Use CHUNK 7 to to complete Exercise 5.2.6.
+
+```{r}
+#CHUNK 7
+# Normalize the training data
+
+# Compute the Pearson correlation coefficients for all variables and rank them
+
+# What's your conclusion?
+
+```
+
+CHUNK 8 contains a sample solution
+
+```{r}
+#CHUNK 8
+# Normalize the training data
+normalize <- function(x) {
+    return ((x - min(x)) / (max(x) - min(x)))
+}
+
+data.training.norm <- as.data.frame(lapply(data.training, normalize))
+
+# Compute the Pearson correlation coefficients for all variables and rank them
+b.Pearson.norm <- sort(cor(data.training.norm, method = "pearson")[ ,c("target")], decreasing = TRUE)
+
+b.Pearson.norm
+```
+
+Use the space in CHUNK 9 to complete Exercise 5.2.7.
+
+```{r}
+#CHUNK 9
+# Compute Pearson correlation between radius_mean and the target in the breast cancer data for 10 random samples (with replacement) of the training data (each sample should sample 60% of the data)
+  # What are your observations?
+
+# Add one row in the data where radius_mean = 50, target = 1, then compute correlations for 10 random samples again
+  # What are your observations? 
+
+```
+
+CHUNK 10 has a sample solution.  
+
+```{r}
+#CHUNK 10
+# Compute Pearson correlation between radius_mean and target in the breast cancer data for 10 random samples of data (60% each)
+
+output <- rep(0, 10)
+set.seed(255)
+
+# Use the caret createDataPartition function to get 10 random samples of the data
+samples <- createDataPartition(data.training$target, times = 10, p = 0.6)
+
+for (i in 1:10) {
+  temp <- data.training[samples[[i]], ]
+  output[i] <- cor(temp$radius_mean, temp$target, method = "pearson")
+}
+
+output
+
+  # What are your observations?
+    # radius_mean has strong correlation with the target
+    # correlations in the 10 samples are close but they do vary
+
+# Add one row in the data where radius_mean = 50, target = 1,  then compute correlation again
+
+output.extraone <- rep(0, 10) 
+data.training.extraone <- rbind( c(50, 1), data.training[ ,c("radius_mean","target")])
+
+for (i in 1:10) {
+  temp <- data.training.extraone[samples[[i]], ]
+  output.extraone[i] <- cor(temp$radius_mean, temp$target, method = "pearson")
+}
+
+output.extraone
+
+```
+
+Rerun the Pearson corrleations from the Breast Cancer data using CHUNK 11.
+  
+```{r}
+#CHUNK 11
+b.Pearson
+```
+
+Use CHUNK 12 to run the analysis requested in Exercise 5.2.8.
+
+```{r}
+#CHUNK 12
+
+
+```
+
+CHUNK 13 has code to complete a simple example of three correlation measures.
+
+```{r}
+#CHUNK 13
+#Create the simple dataset
+m <- matrix(data = c(2,1,4,4,5,2,4,3), nrow = 4, ncol = 2)
+four.pairs <- as.data.frame(m)
+names(four.pairs) <- c("X","Y")
+
+#calculate the Pearson correlation
+cor(four.pairs$X,four.pairs$Y, method="pearson")
+
+#calculate the Kendall corrleation, note that it differs slightly from the value of 1/6 computed by ignoring ties
+cor(four.pairs$X,four.pairs$Y, method="kendall")
+
+#calculate the Spearman correlation
+cor(four.pairs$X,four.pairs$Y, method="spearman")
+
+#check that the Spearman corrleation is the Pearson correlation of the ranks
+m <- matrix(data = c(2,1,3.5,3.5,4,1,3,2), nrow = 4, ncol = 2)
+ranked.pairs <- as.data.frame(m)
+names(ranked.pairs) <- c("Xr","Yr")
+cor(ranked.pairs$Xr,ranked.pairs$Yr, method="pearson")
+
+```
+
+Run CHUNK 14 to generate some scatterplots and compare the three correlation measures for each.
+
+```{r}
+#CHUNK 14
+set.seed(1000)
+x <- runif(100)
+
+y1 <- 3*x + rnorm(100, 0, 0.1)
+p1 <- qplot(x, y1, main = "Monotonic-Linear")
+cor(x,y1,method="pearson")
+cor(x,y1,method="kendall")
+cor(x,y1,method="spearman")
+
+y2 <- (1/x)^0.5 + rnorm(100, 0, 0.1)
+p2 <- qplot(x, y2, main = "Monotonic-Non-linear")
+cor(x,y2,method="pearson")
+cor(x,y2,method="kendall")
+cor(x,y2,method="spearman")
+
+y3 <- (x - 0.5)^2 + rnorm(100, 0, 0.01)
+p3 <- qplot(x, y3, main = "Non-Monotonic")
+cor(x,y3,method="pearson")
+cor(x,y3,method="kendall")
+cor(x,y3,method="spearman")
+
+grid.arrange(p1, p2, p3, ncol = 3)
+```
+  
+Use CHUNK 15 for Exercise 5.2.9. No solution is provided.   
+
+```{r}
+#CHUNK 15
+
+
+```
+
+Use CHUNK 16 to calculate the mutual information in the example dataset. You may need to intall the infotheo package before running this chunk.
+
+```{r}
+#CHUNK 16
+#Create the simple dataset
+m <- matrix(data = c(2,1,4,4,5,2,4,3), nrow = 4, ncol = 2)
+four.pairs <- as.data.frame(m)
+names(four.pairs) <- c("X","Y")
+
+#load the package
+library(infotheo)
+
+#Comupte the mutual information
+four.pairs.disc <- discretize(four.pairs, "equalfreq", nbins=4)
+mi <- mutinformation(four.pairs.disc$X, four.pairs.disc$Y, method = "emp")
+mi
+```
+
+
+  
+```{r}
+#CHUNK 17
+# Load library "infotheo"
+library(infotheo)
+
+# Compute mutual information for radius_mean and target in the breast cancer data
+  # Feel free to test different methods
+data.training.disc <- discretize(data.training, "equalfreq")
+b.mi <- mutinformation(data.training.disc$radius_mean, data.training.disc$target, method = "emp")
+
+b.mi
+```
+
+Use CHUNK 18 to enter code to complete Exercise 5.2.10. A sample solution is in CHUNK 19.  
+
+```{r}
+#CHUNK 18
+# Compute mutual information for all variables
+
+# Visualization: what are your observations?
+
+```
+
+
+```{r}
+#CHUNK 19
+library(reshape2)
+
+# Compute mutual information for all variables
+b.mi <- mutinformation(discretize(data.training, "equalfreq"), method = "emp")
+
+# Visualization: what are your observations?
+melted.b.mi <- melt(b.mi)
+ 
+ggplot(data = melted.b.mi, aes(x = Var1, y = Var2, fill = value)) +
+  geom_tile() +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1))
+```
+
+CHUNK 20 performs the chi-squared test for independence on a small, artifical, dataset. The chisq.test function alows two forms of input. This chunk uses matrix input as set forth in the example.
+  
+```{r}
+#CHUNK 20
+#Create the simple dataset
+m <- matrix(data = c(10,20,25,10,10,15,5,3,2), nrow = 3, ncol = 3)
+m
+chisq.test(m)
+```
+
+CHUNK 21 performs the chi-square test on two variables from the diamonds dataset. This is the other form of input, where the factor level for each observation is presented. Note that for the previous example, this would have required 100 rows.
+
+
+```{r}
+#CHUNK 21
+# Note that the diamonds data is already loaded as part of the ggplot2 package
+chisq.test(diamonds$cut, diamonds$clarity)
+
+```
+
+Breast cancer data test for independence of radius_mean and the target variable.
+  
+```{r}
+#CHUNK 22A
+# Since the breast cancer data is rather small, unlike diamonds, we'll first check the record count for this bucketed variable
+qplot(data.training.disc$radius_mean)
+#It appears each bucket has about the same number of observations, so the earlier discretization proved useful.
+```
+
+```{r}
+#CHUNK 22B
+chisq.test(data.training.disc$radius_mean, data.training.disc$target)
+# The low p-value indicates radius_mean and target are not independent
+```

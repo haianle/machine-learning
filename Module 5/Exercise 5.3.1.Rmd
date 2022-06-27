@@ -1,0 +1,176 @@
+---
+title: "Exercise 5.3.1"
+output: html_document
+---
+
+```{r}
+
+# Load data and take a quick look at the summary
+data.all <- read.csv("../BreastCancerWisconsinDataSet.csv")
+summary (data.all)
+
+ # set the target 
+data.all$target [data.all$diagnosis == "M"] = 1
+data.all$target [data.all$diagnosis == "B"] = 0
+
+ # all variables available for training
+data.all <- data.all[, setdiff(colnames(data.all), c("diagnosis", "X", "id"))]
+
+#define Min-Max normalization function
+min_max_norm <- function(x) {
+    (x - min(x)) / (max(x) - min(x))
+  }
+
+#apply to data.all 
+data.all <- as.data.frame(lapply(data.all, min_max_norm))
+
+
+ # split data into training vs validation sets
+library(caret)
+set.seed(1000)
+
+training.indices <- createDataPartition(data.all$target, p = 0.8, list = FALSE)
+data.training <- data.all[training.indices, ] 
+data.validation <- data.all[-training.indices, ]
+```
+```{r}
+library(glmnet)
+
+#Place the X values in a matrix (required for the glmnet function)
+X <-as.matrix(data.training[,1:30])
+
+model.lm <- glmnet(X, y = data.training$target,family = "binomial", alpha = 0, lambda = 1)
+probabilities <- predict(model.lm, newx = X, type = "response")
+predicted.classes <- ifelse(probabilities > 0.5, 1, 0)
+mean(predicted.classes == data.training$target)
+
+pred <- predict(model.lm, newx = as.matrix(data.validation[,1:30]),type = "response")
+pred.classes <- ifelse(pred > 0.5, 1, 0)
+mean(pred.classes == data.validation$target)
+model.lm$beta
+```
+
+
+```{r}
+ld <- c(0,0.01,0.1,1,10)
+mdl <- function(ld){
+  model.lm <- glmnet(X, y = data.training$target,family = "binomial", alpha = 0, lambda = ld)
+  
+}
+model.list <-lapply(ld, mdl)
+betalist <- as.data.frame(lapply(c(1:5), function(i) as.matrix(model.list[[i]]$beta)))
+predlist <- as.data.frame(lapply(model.list, function(model) predict(model, newx = as.matrix(data.validation[,1:30]),type = "response")))
+classlist<- as.data.frame(ifelse(predlist > 0.5, 1, 0))
+results <- as.data.frame(lapply(classlist, function(class) mean(class == data.validation$target)))
+
+```
+```{r}
+results
+
+```
+
+```{r}
+library(tidyverse)
+library(caret)
+library(glmnet)
+
+
+# Load the data and remove NAs
+data("PimaIndiansDiabetes2", package = "mlbench")
+PimaIndiansDiabetes2 <- na.omit(PimaIndiansDiabetes2)
+# Inspect the data
+sample_n(PimaIndiansDiabetes2, 3)
+# Split the data into training and test set
+set.seed(123)
+training.samples <- PimaIndiansDiabetes2$diabetes %>% 
+  createDataPartition(p = 0.8, list = FALSE)
+train.data  <- PimaIndiansDiabetes2[training.samples, ]
+test.data <- PimaIndiansDiabetes2[-training.samples, ]
+
+# Dumy code categorical predictor variables
+x <- model.matrix(diabetes~., train.data)[,-1]
+# Convert the outcome (class) to a numerical variable
+y <- ifelse(train.data$diabetes == "pos", 1, 0)
+
+model.lm <-glmnet(x, y, family = "binomial", alpha = 0, lambda = 0)
+probabilities <- model.lm %>% predict(newx = x)
+predicted.classes <- ifelse(probabilities > 0.5, "pos", "neg")
+# Model accuracy
+observed.classes <- as.character(train.data$diabetes)
+mean(predicted.classes == observed.classes)
+
+```
+```{r}
+full.model <- glm(diabetes ~., data = train.data, family = binomial)
+# Make predictions
+probabilities <- full.model %>% predict(test.data, type = "response")
+predicted.classes <- ifelse(probabilities > 0.5, "pos", "neg")
+# Model accuracy
+observed.classes <- test.data$diabetes
+mean(predicted.classes == observed.classes)
+```
+
+```{r}
+library(glmnet)
+library(caret)
+
+data.all <- read.csv("../BreastCancerWisconsinDataSet.csv", stringsAsFactors = TRUE)
+
+data.all$target <- 0
+data.all$target[data.all$diagnosis == "M"] <- 1
+data.all$target <- as.factor(data.all$target) 
+data.all <- subset(data.all, select=-c(diagnosis, id, X))
+
+set.seed(2000)
+training.index <- createDataPartition(data.all$target, p = 0.8, list = FALSE)
+data.training <- data.all[training.index,]
+data.testing <- data.all[-training.index,]
+
+X.train <- as.matrix(subset(data.training, select=-c(target)))
+X.test <- as.matrix(subset(data.testing, select=-c(target)))
+y <- data.training$target
+
+# Create a list of lambda values
+ld <- c(0,0.01,0.1,1,10)
+# Run model for each lambda
+mdl <- function(ld){
+  model.lm <- glmnet(X.train, y ,family = "binomial", alpha = 0, lambda = ld)
+  
+}
+
+model.list <-lapply(ld, mdl)
+beta.list <- as.data.frame(lapply(c(1:5), function(i) as.matrix(model.list[[i]]$beta)))
+# Predict on training data
+train.pred <- as.data.frame(
+  lapply(model.list, function(model) 
+    ifelse( predict(model, newx = X.train) > 0.5, 1, 0 )
+    )
+  )
+train.results <- as.data.frame(lapply(train.pred, function(class) mean(class == data.training$target)))
+#Predict on testing data
+test.pred <- as.data.frame(
+  lapply(model.list, function(model) 
+    ifelse( predict(model, newx = X.test) > 0.5, 1, 0 )
+    )
+  )
+test.results <- as.data.frame(lapply(test.pred, function(class) mean(class == data.testing$target)))
+# Print results
+data.frame(lambda = ld, Train.Accuracy = t(train.results), Test.Accuracy = t(test.results))
+
+
+# Checking 
+model.lm <- glmnet(X.train, y, family="binomial", alpha = 0, lambda = 0.01)
+
+
+pred <- ifelse(predict(model.lm, newx = X.train) > 0.5,1,0 )
+er.train <- mean(data.training$target == pred)
+er.train
+pred <- ifelse(predict(model.lm, newx = X.test) > 0.5,1,0 )
+er.test <- mean(data.testing$target == pred)
+er.test
+
+
+
+
+```
+

@@ -1,0 +1,70 @@
+---
+title: "Exercise 5.3.2
+"
+output: html_document
+---
+
+```{r}
+
+# Load data and take a quick look at the summary
+data.all <- read.csv("../BreastCancerWisconsinDataSet.csv")
+#summary (data.all)
+
+ # set the target 
+data.all$target [data.all$diagnosis == "M"] = 1
+data.all$target [data.all$diagnosis == "B"] = 0
+
+ # all variables available for training
+data.all <- data.all[, setdiff(colnames(data.all), c("diagnosis", "X", "id"))]
+
+#define Min-Max normalization function
+min_max_norm <- function(x) {
+    (x - min(x)) / (max(x) - min(x))
+  }
+
+#apply to data.all 
+#data.all <- as.data.frame(lapply(data.all, min_max_norm))
+
+
+ # split data into training vs validation sets
+library(caret)
+set.seed(1000)
+
+training.indices <- createDataPartition(data.all$target, p = 0.8, list = FALSE)
+data.training <- data.all[training.indices, ] 
+data.validation <- data.all[-training.indices, ]
+```
+```{r}
+library(glmnet)
+
+#Place the X values in a matrix (required for the glmnet function)
+X <-as.matrix(data.training[,1:30])
+
+model.lm <- glmnet(X, y = data.training$target,family = "binomial", alpha = 1, lambda = 0.1)
+probabilities <- predict(model.lm, newx = X, type = "response")
+predicted.classes <- ifelse(probabilities > 0.5, 1, 0)
+mean(predicted.classes == data.training$target)
+
+pred <- predict(model.lm, newx = as.matrix(data.validation[,1:30]),type = "response")
+pred.classes <- ifelse(pred > 0.5, 1, 0)
+mean(pred.classes == data.validation$target)
+model.lm$beta
+```
+
+
+```{r}
+ld <- c(0,0.01,0.1,1,10)
+mdl <- function(ld){
+  model.lm <- glmnet(X, y = data.training$target,family = "binomial", alpha = 1, lambda = ld)
+  
+}
+model.list <-lapply(ld, mdl)
+betalist <- as.data.frame(lapply(c(1:5), function(i) as.matrix(model.list[[i]]$beta)))
+predlist <- as.data.frame(lapply(model.list, function(model) predict(model, newx = as.matrix(data.validation[,1:30]),type ="response")))
+classlist<- as.data.frame(ifelse(predlist > 0.5, 1, 0))
+results <- as.data.frame(lapply(classlist, function(class) mean(class == data.validation$target)))
+
+```
+```{r}
+results
+```

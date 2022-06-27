@@ -1,0 +1,108 @@
+---
+title: "Module 5.4 Text mining: Generating features from text data"
+output: html_notebook
+---
+
+Run CHUNK 1 to place the drug review text in a variable.  
+
+```{r echo = FALSE}
+#CHUNK 1
+review <- "I've been on quite a few different kinds of medications for anxiety and depression, but I've never had a reaction quite like I did with this one. Within hours of taking it for the first time, I began to feel nauseous, drowsy, uncoordinated, shaky; my vision was blurry and I couldn't drive a car. These symptoms persisted until I stopped the medication. I tried it once or twice after stopping the first time, and the horrible symptoms came right back. I couldn't even do my work. If you have any sensitivities to this medication I would not recommend it. I'm no doctor, but even I know when a pill isn't worth the risk."
+review
+```
+
+Run CHUNK 2 to extract the bag-of-words.
+
+```{r echo = FALSE}
+library(tm)
+bagOfWords <- unique(gsub("[.,;]", "", tolower(scan_tokenizer(review))))
+bagOfWords
+```
+
+Run CHUNK 3 to see the list of English stop words.
+
+```{r}
+#CHUNK 3
+
+stopwords(kind = 'en')
+```
+
+Run CHUNK 4 to remove the stop words.
+
+```{r}
+#CHUNK 4
+bagOfWords <- setdiff(bagOfWords, stopwords(kind = 'en'))
+bagOfWords
+```
+
+Run CHUNK 5 to get the frequencies (with the stop words removed)
+
+```{r}
+#CHUNK 5
+bagOfWords <- gsub("[.,;]", "", tolower(scan_tokenizer(review))) # Extract the words (not unique this time as we want the frequency)
+bagOfWords <- bagOfWords[!(bagOfWords %in% stopwords(kind = 'en'))] # Remove the stop words (setdiff won't work because we want to retain duplicates for calculating frequency)
+
+termFreq(PlainTextDocument(bagOfWords)) # Create the frequency vector
+```
+
+Run CHUNK 6 to create a bigram and a trigram.
+
+```{r}
+#CHUNK 6
+library(ngram)
+
+review.clean <- gsub("[.,;]", "", tolower(review))
+
+bigram <- ngram(review.clean, n = 2)
+get.phrasetable(bigram)[1:10,]
+
+trigram <- ngram(review.clean, n = 3)
+
+get.phrasetable(trigram)[1:10,]
+
+```
+
+
+```{r}
+#CHUNK 7
+# Load libraries
+library(tm)
+library(stm)
+
+# Read in the data
+icd10code <- read.csv("Icd10Code.csv", stringsAsFactors = FALSE)
+icd10code.sample <- icd10code[sample.int(nrow(icd10code), size = 100),] # we are creating a sample so that it doesn't take too long to run.
+colnames(icd10code.sample) <- c("doc_id", "text")
+# Create the corpus object (corpus is just a collection of documents)
+death.corpus <- VCorpus(DataframeSource(icd10code.sample))
+
+death.corpus[[1]]$content # Use this code to view the content of the first document in the corpus
+
+# Clean the corpus
+death.corpus <- tm_map(death.corpus, content_transformer(tolower))
+death.corpus <- tm_map(death.corpus, removePunctuation)
+death.corpus <- tm_map(death.corpus, removeWords, stopwords(kind = 'en'))
+death.corpus[[1]]$content # Check the effect of the cleaning
+
+# Create the DTM (rows are documents, columns are words, values are the frequency of each word in the document)
+death.dtm <- DocumentTermMatrix(death.corpus)
+death.dtm$dimnames # Check the columns that were created
+
+# Set up the topic modeling objects required by stm
+death.stm <- readCorpus(death.dtm, type="slam")
+stm.prep <- prepDocuments(death.stm$documents, death.stm$vocab)
+
+# Build a topic model with 10 topics
+stm.10 <- selectModel(stm.prep$documents, stm.prep$vocab, K = 10, init.type = "Spectral",runs=2, verbose = FALSE)
+
+# Look at the topics
+labelTopics(stm.10$runout[[1]], 
+            topics = c(1:5), # Which topics to show
+            n = 7) # The number of words to show per topic
+
+# Look at the theta values for the first document, one for each topic. View the contents of the topics in the previous step to see which topics are most prevalent.
+stm.10$runout[[1]]$theta[1,]
+
+```
+
+
