@@ -1,0 +1,323 @@
+---
+title: "Section 4.4 Clustering"
+output: html_notebook
+---
+
+Run CHUNK 1 to simulate some two-dimenstional data.
+
+```{r echo = FALSE}
+#CHUNK 1
+library(ggplot2)
+library(gridExtra)
+set.seed(1000)
+income_male <- rnorm(100, 70000, 10000)
+income_female <- rnorm(100, 45000, 5000)
+age <- rnorm(100, 65, 10)
+age2 <- rnorm(100, 35, 5)
+
+df <- data.frame(a = c(income_male,income_female), b = c(age,age2))
+
+ggplot(data = df, aes(x = b, y = a)) + 
+  geom_point() +
+  theme(axis.text = element_blank()) +
+  ggtitle("Raw data")
+
+```
+
+Run CHUNK 2 to assign the points to groups at random.
+
+```{r echo = FALSE}
+#CHUNK 2
+df$group_random <- as.factor(sample(c(1,2), size = 100, replace = TRUE))
+ggplot(data = df, aes(x = b, y = a, col = group_random)) + 
+  geom_point() +
+  theme(axis.text = element_blank(), legend.title = element_blank()) +
+  ggtitle("Random Grouping")
+```
+
+Run CHUNK 3 to perform a K-means clustering with two groups. Note that the data have been scaled, an important step when using this algorithm.
+
+```{r echo = FALSE}
+#CHUNK 3
+df$group_random <- NULL
+df$a <- scale(df$a)
+df$b <- scale(df$b)
+km2 <- kmeans(df, 2)
+df$group2 <- as.factor(km2$cluster)
+
+ggplot(data = df, aes(x = b, y = a, col = group2)) + 
+  geom_point() +
+  theme(axis.text = element_blank(), legend.title = element_blank()) +
+  ggtitle("Clustering with 2 groups")
+
+```
+
+Run CHUNK 4 to add the centers to the plot.
+
+```{r echo = FALSE}
+#CHUNK 4
+df$group_random <- NULL
+df$a <- scale(df$a)
+df$b <- scale(df$b)
+km2 <- kmeans(df, 2)
+df$group2 <- as.factor(km2$cluster)
+
+ggplot(data = df, aes(x = b, y = a, col = group2)) + 
+  geom_point() +
+  annotate("point", x = km2$centers[1,2], y = km2$centers[1,1], size = 3, color = "black") +
+  annotate("text", x = km2$centers[1,2] + 0.5, y = km2$centers[1,1], label = paste("(",round(km2$centers[1,2],2),",",round(km2$centers[1,1],2),")",sep = ""), color = "black") +
+  annotate("point", x = km2$centers[2,2], y = km2$centers[2,1], size = 3, color = "black") +
+  annotate("text", x = km2$centers[2,2] + 0.5, y = km2$centers[2,1], label = paste("(",round(km2$centers[2,2],2),",",round(km2$centers[2,1],2),")",sep = ""), color = "black") +
+  ggtitle("Clustering with 2 groups") +
+  theme(legend.title = element_blank())
+
+```
+
+CHUNK 5 provides an example of the effect of an outlier.
+
+```{r echo = FALSE}
+#CHUNK 5
+df.outlier <- rbind(df[c(1:100),c("a", "b")], c(3,3))
+df.outlier$cluster <- as.factor(c(rep(1,times = 100),2))
+
+p1 <- ggplot(data = df.outlier, aes(x = b, y = a, col = cluster)) + 
+  geom_point() +
+  annotate("point", x = km2$centers[1,2], y = km2$centers[1,1], size = 3, color = "black") +
+  annotate("text", x = km2$centers[1,2] + 0.5, y = km2$centers[1,1], label = paste("(",round(km2$centers[1,2],2),",",round(km2$centers[1,1],2),")",sep = ""), color = "black") +
+  annotate("text", x = 3 - 0.2, y = 3, label = paste("(",3,",",3,")",sep = ""), color = "black") +
+  ggtitle("Effect of outliers") +
+  theme(legend.title = element_blank())
+
+p1
+```
+
+Run CHUNK 6 to regenerate the random data and also generate random starting points. You might want to repeat this steps with a different second seed to see how the starting points might make a difference.
+
+```{r echo = FALSE}
+#CHUNK 6
+set.seed(1000)
+income_male <- rnorm(100, 70000, 10000)
+income_female <- rnorm(100, 45000, 5000)
+age <- rnorm(100, 65000, 10000)
+age2 <- rnorm(100, 35000, 5000)
+
+df <- data.frame(a = c(income_male,income_female), b = c(age,age2))
+
+set.seed(200)
+df$a <- scale(df$a)
+df$b <- scale(df$b)
+km2 <- kmeans(df, 2, iter.max = 1, algorithm = "Lloyd")
+df$group2 <- as.factor(km2$cluster)
+
+centers1 <- km2$centers
+
+ggplot(data = df, aes(x = b, y = a, col = "all")) + 
+  geom_point() +
+  annotate("point", x = centers1[1,2], y = centers1[1,1], size = 3, color = "black") +
+  annotate("text", x = centers1[1,2] + 0.5, y = centers1[1,1], label = paste("(",round(km2$centers[1,2],2),",",round(centers1[1,1],2),")",sep = ""), color = "black") +
+  annotate("point", x = centers1[2,2], y = centers1[2,1], size = 3, color = "black") +
+  annotate("text", x = centers1[2,2] + 0.5, y = centers1[2,1], label = paste("(",round(centers1[2,2],2),",",round(centers1[2,1],2),")",sep = ""), color = "black") +
+  ggtitle("Clustering with 2 groups") +
+  theme(legend.title = element_blank())
+
+```
+
+Run CHUNK 7 to assign the points to clusters.
+
+```{r echo = FALSE}
+#CHUNK 7
+set.seed(200)
+df$a <- scale(df$a)
+df$b <- scale(df$b)
+km2 <- kmeans(df[,c("a","b")], 2, iter.max = 2, algorithm = "Lloyd")
+df$group3 <- as.factor(km2$cluster)
+
+ggplot(data = df, aes(x = b, y = a, col = group3)) + 
+  geom_point() +
+  annotate("point", x = centers1[1,2], y = centers1[1,1], size = 3, color = "black") +
+  annotate("text", x = centers1[1,2] + 0.5, y = centers1[1,1], label = paste("(",round(centers1[1,2],2),",",round(centers1[1,1],2),")",sep = ""), color = "black") +
+  annotate("point", x = centers1[2,2], y = centers1[2,1], size = 3, color = "black") +
+  annotate("text", x = centers1[2,2] + 0.5, y = centers1[2,1], label = paste("(",round(centers1[2,2],2),",",round(centers1[2,1],2),")",sep = ""), color = "black") +
+  ggtitle("Clustering with 2 groups") +
+  theme(legend.title = element_blank())
+
+```
+
+CHUNK 8 identifies the new centers.
+
+```{r echo = FALSE}
+#CHUNK 8
+ggplot(data = df, aes(x = b, y = a, col = group3)) + 
+  geom_point() +
+  annotate("point", x = km2$centers[1,2], y = km2$centers[1,1], size = 3, color = "black") +
+  annotate("text", x = km2$centers[1,2] + 0.5, y = km2$centers[1,1], label = paste("(",round(km2$centers[1,2],2),",",round(km2$centers[1,1],2),")",sep = ""), color = "black") +
+  annotate("point", x = km2$centers[2,2], y = km2$centers[2,1], size = 3, color = "black") +
+  annotate("text", x = km2$centers[2,2] + 0.5, y = km2$centers[2,1], label = paste("(",round(km2$centers[2,2],2),",",round(km2$centers[2,1],2),")",sep = ""), color = "black") +
+  ggtitle("Clustering with 2 groups") +
+  theme(legend.title = element_blank())
+
+```
+
+Run CHUNK 9 to to assign the observations to groups based on the new centers.
+
+```{r echo = FALSE}
+#CHUNK 9
+set.seed(200)
+df$a <- scale(df$a)
+df$b <- scale(df$b)
+km2 <- kmeans(df[,c("a","b")], 2, algorithm = "Lloyd")
+df$group4 <- as.factor(km2$cluster)
+
+ggplot(data = df, aes(x = b, y = a, col = group4)) + 
+  geom_point() +
+  annotate("point", x = km2$centers[1,2], y = km2$centers[1,1], size = 3, color = "black") +
+  annotate("text", x = km2$centers[1,2] + 0.5, y = km2$centers[1,1], label = paste("(",round(km2$centers[1,2],2),",",round(km2$centers[1,1],2),")",sep = ""), color = "black") +
+  annotate("point", x = km2$centers[2,2], y = km2$centers[2,1], size = 3, color = "black") +
+  annotate("text", x = km2$centers[2,2] + 0.5, y = km2$centers[2,1], label = paste("(",round(km2$centers[2,2],2),",",round(km2$centers[2,1],2),")",sep = ""), color = "black") +
+  ggtitle("Clustering with 2 groups") +
+  theme(legend.title = element_blank())
+
+```
+
+Run CHUNK 10 to do the clustering without standardization.
+
+```{r}
+#CHUNK 10
+set.seed(1000)
+income_male <- rnorm(100, 70000, 10000)
+income_female <- rnorm(100, 45000, 5000)
+age <- rnorm(100, 65, 10)
+age2 <- rnorm(100, 35, 5)
+
+df <- data.frame(income = c(income_male,income_female), age = c(age,age2))
+
+km2 <- kmeans(df, 2) # K-means algorithm - the default method is Hamilton-Wong
+df$group2 <- as.factor(km2$cluster)
+
+ggplot(data = df, aes(x = age, y = income, col = group2)) + 
+  geom_point() +
+  ggtitle("Clustering without standardization") +
+  theme(legend.title = element_blank())
+
+```
+
+Run CHUNK 11 to try out the elbow method.
+
+```{r echo = FALSE}
+#CHUNK 11
+set.seed(1000)
+income_male <- rnorm(100, 70000, 10000)
+income_female <- rnorm(100, 45000, 5000)
+age <- rnorm(100, 65000, 10000)
+age2 <- rnorm(100, 35000, 5000)
+
+df <- data.frame(a = c(income_male,income_female), b = c(age,age2))
+
+set.seed(200)
+df$a <- scale(df$a)
+df$b <- scale(df$b)
+
+
+km1 <- kmeans(df, 1)
+df$group <- as.factor(km1$cluster)
+p1 <- ggplot(data = df, aes(x = b, y = a, col = group)) + 
+      geom_point() +
+      ggtitle("k=1")
+
+km2 <- kmeans(df, 2)
+df$group <- as.factor(km2$cluster)
+p2 <- ggplot(data = df, aes(x = b, y = a, col = group)) + 
+      geom_point() +
+      ggtitle("k=2")
+
+km3 <- kmeans(df, 3)
+df$group <- as.factor(km3$cluster)
+p3 <- ggplot(data = df, aes(x = b, y = a, col = group)) + 
+      geom_point() +
+      ggtitle("k=3")
+
+km4 <- kmeans(df, 4)
+df$group <- as.factor(km4$cluster)
+p4 <- ggplot(data = df, aes(x = b, y = a, col = group)) + 
+      geom_point() +
+      ggtitle("k=4")
+
+km5 <- kmeans(df, 5)
+df$group <- as.factor(km5$cluster)
+p5 <- ggplot(data = df, aes(x = b, y = a, col = group)) + 
+      geom_point() +
+      ggtitle("k=5")
+
+km6 <- kmeans(df, 6)
+df$group <- as.factor(km6$cluster)
+p6 <- ggplot(data = df, aes(x = b, y = a, col = group)) + 
+      geom_point() +
+      ggtitle("k=6")
+
+var.exp <- data.frame(k = c(1:6),
+                      bss_tss = c(km1$betweenss/km1$totss,
+                                  km2$betweenss/km2$totss,
+                                  km3$betweenss/km3$totss,
+                                  km4$betweenss/km4$totss,
+                                  km5$betweenss/km5$totss,
+                                  km6$betweenss/km6$totss))
+
+ggplot(data = var.exp, aes(x = k, y = bss_tss)) + 
+  geom_point() + 
+  geom_line() +
+  annotate("path",
+   x=2+0.1*cos(seq(0,2*pi,length.out=100)),
+   y=0.76+0.05*sin(seq(0,2*pi,length.out=100)), color = "red") +
+  ggtitle("Elbow plot")
+
+library(gridExtra)
+grid.arrange(p1,p2,ncol = 2)
+grid.arrange(p3,p4,ncol = 2)
+grid.arrange(p5,p6,ncol = 2)
+```
+
+Run CHUNKs 12-14 to perform agglomerative hierarchical clustering:
+
+```{r echo = FALSE}
+#CHUNK 12
+## Set up the data again for use in the hierarchical clustering
+set.seed(1000)
+income_male <- rnorm(100, 70000, 10000)
+income_female <- rnorm(100, 45000, 5000)
+age <- rnorm(100, 65, 10)
+age2 <- rnorm(100, 35, 5)
+
+df <- data.frame(a = c(income_male,income_female), b = c(age,age2))
+
+df$a <- scale(df$a)
+df$b <- scale(df$b)
+```
+
+```{r}
+#CHUNK 13
+# Calculate the dissimilarity structure for our dataset
+d_struct <- dist(df)
+
+# Cluster the dissimilarity structure of our data
+hc <- hclust(d_struct)
+```
+
+
+```{r}
+#CHUNK 14
+# Plot the dendrogram of our hierarchical cluster
+plot(hc)
+
+# Simple function to create a plot given a dataframe, hclust, and number of clusters
+plot_cluster_slice <- function(df, hc, numclusters) {
+  df$clusters <- as.factor(cutree(hc, numclusters))
+  ggplot(data = df, aes(x = b, y = a, col = clusters)) + 
+    geom_point() +
+    theme(axis.text = element_blank())
+}
+
+plot_cluster_slice(df, hc, 2)
+plot_cluster_slice(df, hc, 3)
+plot_cluster_slice(df, hc, 10)
+```
+

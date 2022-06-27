@@ -1,0 +1,244 @@
+---
+title: "Module 4.2: Bivariate Data Exploration"
+output: html_notebook
+---
+
+run CHUNK 1 to be sure ggplot and the SOA mortality data are loaded.
+
+```{r echo = FALSE}
+#CHUNK 1
+library(ggplot2)
+data.mortality <- read.csv("soa_mortality_data.csv")
+```
+
+Run CHUNK 2 to create a split box plot.
+
+```{r echo = FALSE}
+#CHUNK 2
+p1 <- ggplot(data = data.mortality, aes(x = issstate, y = issage)) +
+        geom_boxplot(alpha = 0.5) +
+        theme(axis.text.x = element_text(angle = 90, vjust = 0.5))
+p1
+```
+
+Run CHUNK 3 to create additional plots. Recall that to use the grid.arrange function, the gridExtra pacakge needs to be loaded.
+
+```{r}
+#CHUNK 3
+library(gridExtra)
+p1 <- ggplot(data = data.mortality, aes(x = as.factor(year), y = issage, fill = as.factor(year))) +
+        geom_boxplot(alpha = 0.5) 
+p2 <- ggplot(data = data.mortality, aes(x = resind_ind, y = issage, fill = smoker)) +
+        geom_boxplot(alpha = 0.5) 
+p3 <- ggplot(data = data.mortality, aes(x = sex, y = issage, fill = sex)) +
+        geom_boxplot()
+p4 <- ggplot(data = data.mortality, aes(x = smoker, y = issage, fill = smoker)) +
+        geom_boxplot()
+grid.arrange(p1,p2,p3,p4,ncol=2)
+```
+
+Run CHUNK 4 to learn how some variables relate to the actual face amount paid.
+
+```{r}
+#CHUNK 4
+p1 <- ggplot(data = subset(data.mortality, actual_cnt >= 1), aes(x = resind_ind, y = actual_face, fill = resind_ind)) +
+        geom_boxplot() +
+        scale_y_log10()
+p2 <- ggplot(data = subset(data.mortality, actual_cnt >= 1), aes(x = uwkey, y = actual_face, fill = uwkey)) +
+        geom_boxplot() +
+        scale_y_log10() +
+        theme(axis.text.x = element_text(angle = 45, hjust = 1))
+p3 <- ggplot(data = subset(data.mortality, actual_cnt >= 1), aes(x = sex, y = actual_face, fill = sex)) +
+        geom_boxplot() +
+        scale_y_log10()
+p4 <- ggplot(data = subset(data.mortality, actual_cnt >= 1), aes(x = smoker, y = actual_face, fill = smoker)) +
+        geom_boxplot() +
+        scale_y_log10()
+grid.arrange(p1,p2,p3,p4,ncol=2)
+```
+
+Run CHUNK 5 to produce both stacked and split histograms of issue age for each product category.
+
+```{r}
+#CHUNK 5
+## Stacked histogram
+p1 <- ggplot(data = data.mortality, aes(issage, fill=prodcat, ..density..)) +
+       geom_histogram(binwidth = 5, alpha = 0.5)
+
+## Split histogram
+p2 <- ggplot(data = data.mortality, aes(issage, fill=prodcat, ..density..)) +
+       geom_histogram(binwidth = 5, alpha = 0.5, position = "dodge")
+grid.arrange(p1,p2,ncol=1)
+```
+
+Run CHUNK 6 to try this for issue state.
+
+```{r}
+#CHUNK 6
+## Stacked histogram
+p1 <- ggplot(data = data.mortality, aes(issage, fill=issstate, ..density..)) +
+       geom_histogram(binwidth = 5, alpha = 0.5)
+
+## Split histogram
+p2 <- ggplot(data = data.mortality, aes(issage, fill=issstate, ..density..)) +
+       geom_histogram(binwidth = 5, alpha = 0.5, position = "dodge")
+p1
+p2
+```
+
+Run CHUNK 7 to try this for smoking status.
+
+```{r}
+#CHUNK 7
+## Stacked histogram
+p1 <- ggplot(data = data.mortality, aes(issage, fill=smoker, ..density..)) +
+       geom_histogram(binwidth = 5, alpha = 0.5)
+
+## Split histogram
+p2 <- ggplot(data = data.mortality, aes(issage, fill=smoker, ..density..)) +
+       geom_histogram(binwidth = 5, alpha = 0.5, position = "dodge")
+grid.arrange(p1,p2,ncol=1)
+```
+
+Run CHUNK 8 to see a stacked bar chart.
+
+```{r}
+#CHUNK 8
+p1 <- ggplot(data = data.mortality, aes(x = prodcat, fill = smoker)) +
+        geom_bar(stat = "count", alpha = 0.5)
+p2 <- ggplot(data = data.mortality, aes(x = prodcat, fill = smoker)) +
+        geom_bar(stat = "count", alpha = 0.5, position = "dodge")
+p3 <- ggplot(data = data.mortality, aes(x = uwtype, fill = uwkey)) +
+        geom_bar(stat = "count", alpha = 0.5)
+p4 <- ggplot(data = data.mortality, aes(x = uwtype, fill = uwkey)) +
+        geom_bar(stat = "count", alpha = 0.5, position = "dodge")
+grid.arrange(p1,p2,ncol=2)
+grid.arrange(p3,p4,ncol=2)
+```
+
+Run CHUNK 9 to see an example of a heat map of issue age and duration.
+
+```{r}
+#CHUNK 9
+# Calculate the kernel density of the two variables issue age and duration
+library(MASS)
+library(reshape2)
+kernalDensity <- kde2d(data.mortality$issage, data.mortality$duration, n = 50)
+
+# The following code turns the data from the k2de2d function into something that can be plotted by ggplot2
+density.melt <- melt(kernalDensity$z)
+density.melt$issage <- sapply(density.melt$Var1, FUN = function(a){kernalDensity$x[a]}) 
+density.melt$duration <- sapply(density.melt$Var2, FUN = function(a){kernalDensity$y[a]})
+
+# Plot the heat map
+ggplot(data = density.melt, aes(x = issage, y = duration, fill = value)) +
+        geom_tile() + 
+        theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1))
+```
+
+Run CHUNK 10 to make a scatterplot.
+
+```{r}
+#CHUNK 10
+p1 <- ggplot(data = data.mortality, aes(x = issage, y = duration)) +
+        geom_point(alpha = 0.2)
+p1
+```
+
+Run CHUNK 11 to do the same for duration and actual face amount.
+
+```{r}
+#CHUNK 11
+p1 <- ggplot(data = data.mortality, aes(x = duration, y = actual_face)) +
+        geom_point(alpha = 0.2) +
+        scale_y_log10()
+p1
+```
+
+Run CHUNK 12 to make two plots, one splitting by smoker, one by sex.
+
+```{r}
+#CHUNK 12
+p1 <- ggplot(data = data.mortality, aes(x = duration, y = actual_face, color = smoker)) +
+        geom_point(alpha = 0.2) +
+        scale_y_log10()
+p2 <- ggplot(data = data.mortality, aes(x = duration, y = actual_face, color = sex)) +
+        geom_point(alpha = 0.2) +
+        scale_y_log10()
+grid.arrange(p1,p2,ncol=2)
+```
+
+Run CHUNK 13 to look at subsets (note the axis limits on the graphs).
+
+```{r}
+#CHUNK 13
+p1 <- ggplot(data = subset(data.mortality, prodcat == "TRM"), aes(x = duration, y = actual_face, color = smoker)) +
+        geom_point(alpha = 0.5) +
+        scale_y_log10()
+p2 <- ggplot(data = subset(data.mortality, prodcat == "TRM"), aes(x = duration, y = actual_face, color = sex)) +
+        geom_point(alpha = 0.5) +
+        scale_y_log10()
+p3 <- ggplot(data = subset(data.mortality, prodcat == "TRM"), aes(x = duration, y = actual_face, color = smoker)) +
+        geom_point(alpha = 0.5) +
+        scale_x_continuous(limits = c(0, 80)) + 
+        #scale_y_continuous(limits = c(0, 1.0e+07)) +
+        scale_y_log10(limits = c(1, 1.0e+07))
+p4 <- ggplot(data = subset(data.mortality, prodcat == "TRM"), aes(x = duration, y = actual_face, color = sex)) +
+        geom_point(alpha = 0.5) +
+        scale_x_continuous(limits = c(0, 80)) + 
+        #scale_y_continuous(limits = c(0, 1.0e+07)) +
+        scale_y_log10(limits = c(1, 1.0e+07))
+grid.arrange(p1,p2,p3,p4,ncol=2)
+```
+
+Run CHUNK 14 to generate a heatmap of the correlations. 
+
+```{r}
+#CHUNK 14
+# Correlations only work with numeric variables so we need to identify these first:
+library(reshape2)
+vars.numeric <- colnames(data.mortality)[sapply(data.mortality, is.numeric)]
+
+# Calculate correlation matrix
+cormat <- cor(data.mortality[vars.numeric])
+# Melt the correlation matrix
+melted.cormat <- melt(cormat)
+
+# Plot the heat map
+ggplot(data = melted.cormat, aes(x=Var1, y=Var2, fill=value)) + 
+  geom_tile() +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, 
+        hjust = 1))
+```
+
+Run CHUNK 15 to examine duration versus actual face for term insurance products.
+
+```{r}
+#CHUNK 15
+p1 <- ggplot(data = subset(data.mortality, prodcat == "TRM"), aes(x = duration, y = actual_face)) +
+        geom_point(alpha = 0.5) +
+        scale_x_continuous(limits = c(0, 80)) + 
+        scale_y_log10(limits = c(1, 1.0e+07)) +
+        annotate("rect", xmin = 39, xmax = 43, ymin = 600, ymax = 10000, fill = "red", alpha = 0.2)
+p1
+```
+
+Run CHUNK 16 to see an example where one variable is categorical and the other is numeric.
+
+```{r}
+#CHUNK 16
+p1 <- ggplot(data = subset(data.mortality, actual_cnt >= 1), aes(x = smoker, y = issage, fill = smoker)) +
+        geom_boxplot() 
+p2 <- ggplot(data = subset(data.mortality, actual_cnt >= 1), aes(x = "smoker", y = issage)) +
+        geom_boxplot() 
+grid.arrange(p1,p2,ncol=2)
+```
+
+Run CHUNK 17 to make a frequency table of distribution channel and smoking status.
+
+```{r}
+#CHUNK 17
+tbl <- table(data.mortality$distchan, data.mortality$smoker)
+tbl
+```
+

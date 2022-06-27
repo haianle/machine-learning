@@ -1,0 +1,263 @@
+---
+title: 'Module 4.1: Univariate Data Exploration'
+output:
+  html_document: default
+  html_notebook: default
+---
+
+Run CHUNK 1 to load and display Anscombe's Quartet.
+
+```{r echo = FALSE}
+#CHUNK 1
+data.AQ <- read.csv("AnscombesQuartet.csv")
+data.AQ
+```
+
+Run CHUNK 2 to determine the sample means and variances of each variable.
+
+```{r echo = FALSE}
+#CHUNK 2
+data.frame(mean = sapply(data.AQ, mean),
+           var = sapply(data.AQ, var))
+```
+
+Run CHUNK 3 to plot the variables
+
+```{r echo = FALSE}
+#CHUNK 3
+library(ggplot2)
+library(gridExtra)
+p1 <- ggplot(data = data.AQ, aes(x = X1x, y = X1y)) +
+       geom_point(color = 1) + ylim(2,14)
+p2 <- ggplot(data = data.AQ, aes(x = X2x, y = X2y)) +
+       geom_point(color = 2) + ylim(2,14)
+p3 <- ggplot(data = data.AQ, aes(x = X3x, y = X3y)) +
+       geom_point(color = 3) + ylim(2,14)
+p4 <- ggplot(data = data.AQ, aes(x = X4x, y = X4y)) +
+       geom_point(color = 4)+ ylim(2,14)
+grid.arrange(p1,p2,p3,p4,ncol=2) 
+```
+
+Run CHUNK 4 to load the mortality data.
+
+```{r echo = FALSE}
+#CHUNK 4
+data.mortality <- read.csv("soa_mortality_data.csv")
+```
+
+Run CHUNK 5 to see the output from the summary function.
+
+```{r}
+#CHUNK 5
+summary(data.mortality$issage)
+```
+
+Run CHUNK 6 to calculate a variety of statistics.
+
+```{r}
+#CHUNK 6
+stats.central <- data.frame(mean = mean(data.mortality$issage), 
+                            median = median(data.mortality$issage),
+                            percentile5 = quantile(data.mortality$issage, 0.05),
+                            percentile25 = quantile(data.mortality$issage, 0.25),
+                            percentile50 = quantile(data.mortality$issage, 0.50),
+                            percentile75 = quantile(data.mortality$issage, 0.75),
+                            percentile95 = quantile(data.mortality$issage, 0.95),
+                            max = max(data.mortality$issage),
+                            min = min(data.mortality$issage), 
+                            row.names = c("issage"))
+stats.central
+```
+
+Run CHUNK 7 to calculate some measures of spread.
+
+```{r}
+#CHUNK 7
+library(e1071)
+stats.spread <- data.frame(variance = var(data.mortality$issage),
+                           standardDev = sd(data.mortality$issage),
+                           iqr = IQR(data.mortality$issage),
+                           skew = skewness(data.mortality$issage),
+                           kurtosis = kurtosis(data.mortality$issage),
+                           row.names = c("issage"))
+stats.spread
+```
+
+Run CHUNK 8 to make a histogram of issue age.
+
+```{r}
+#CHUNK 8
+p2 <- ggplot(data = data.mortality, aes(issage, ..density..)) +
+       geom_histogram(binwidth = 5, fill = "blue", alpha = 0.5)
+p2
+
+```
+
+Run CHUNK 9 to see different bin widths.
+
+```{r}
+#CHUNK 9
+p1 <- ggplot(data = data.mortality, aes(issage, ..density..)) +
+       geom_histogram(binwidth = 1, fill = "blue", alpha = 0.5)
+p2 <- ggplot(data = data.mortality, aes(issage, ..density..)) +
+       geom_histogram(binwidth = 20, fill = "blue", alpha = 0.5)
+grid.arrange(p1,p2,ncol=2)
+
+```
+
+Run CHUNK 10 to make histograms of duration and attained age.
+
+```{r}
+#CHUNK 10
+p1 <- ggplot(data = data.mortality, aes(duration, ..density..)) +
+       geom_histogram(binwidth = 10, fill = "blue", alpha = 0.5)
+p2 <- ggplot(data = data.mortality, aes(attage, ..density..)) +
+       geom_histogram(binwidth = 10, fill = "blue", alpha = 0.5)
+grid.arrange(p1,p2,ncol=2)
+
+```
+
+Run CHUNK 11 to split the variables by product category.
+
+
+```{r}
+#CHUNK 11
+p1 <- ggplot(data = data.mortality, aes(x = prodcat, y = attage)) +
+        geom_boxplot(fill = c(1:4), alpha = 0.5) 
+p2 <- ggplot(data = data.mortality, aes(x = prodcat, y = issage)) +
+        geom_boxplot(fill = c(1:4), alpha = 0.5) 
+p3 <- ggplot(data = data.mortality, aes(x = prodcat, y = duration)) +
+        geom_boxplot(fill = c(1:4), alpha = 0.5) 
+p4 <- ggplot(data = data.mortality, aes(x = "attage", y = attage)) +
+        geom_boxplot(alpha = 0.5) 
+p5 <- ggplot(data = data.mortality, aes(x = "issage", y = issage)) +
+        geom_boxplot(alpha = 0.5) 
+p6 <- ggplot(data = data.mortality, aes(x = "duration", y = duration)) +
+        geom_boxplot(alpha = 0.5) 
+
+grid.arrange(p1,p4,p2,p5,p3,p6,ncol=2)
+
+```
+
+Run CHUNK 12 to make a frequency table.
+
+```{r}
+#CHUNK 12
+table(data.mortality$prodcat)
+
+table(data.mortality$prodcat) / nrow(data.mortality)
+```
+
+Run CHUNK 13 to use exposures.
+
+```{r}
+#CHUNK 13
+# Exposure-weighted counts
+tbl <- aggregate(data.mortality[,c("exposure_cnt","exposure_face")], by = list(ProductCategory = data.mortality$prodcat), FUN = sum) 
+
+# Exposure-weighted Percentages
+tbl$exposure_cnt_p <- tbl$exposure_cnt / sum(tbl$exposure_cnt)
+tbl$exposure_face_p <- tbl$exposure_face / sum(tbl$exposure_face)
+
+# Counts for comparison
+tbl$count <- as.numeric(table(data.mortality$prodcat))
+tbl$count_p <- tbl$count / sum(tbl$count)
+
+tbl
+
+```
+
+Run CHUNK 14 to turn the frequency table into a bar chart.
+
+```{r}
+#CHUNK 14
+library(dplyr)
+# Count summary
+p1 <- ggplot(data = data.mortality, aes(x = prodcat)) +
+  geom_bar(stat = "count", fill = c(1:4), alpha = 0.5)
+
+# Summary by exposure count variable
+df <- data.mortality %>% group_by(prodcat) %>% summarize(exposure.count = sum(exposure_cnt))
+p2 <- ggplot(data = df, aes(x = prodcat, y = exposure.count)) +
+  geom_bar(stat = "summary", fill = c(1:4), alpha = 0.5)
+
+# Summary by face amount exposure variable
+df <- data.mortality %>% group_by(prodcat) %>% summarize(exposure.face = sum(exposure_face))
+p3 <- ggplot(data = df, aes(x = prodcat, y = exposure.face)) +
+  geom_bar(stat = "summary", fill = c(1:4), alpha = 0.5)
+
+grid.arrange(p1,p2,p3,ncol=3)
+
+```
+
+Run CHUNK 15 to check for outliers in the duration variable.
+
+```{r echo = FALSE}
+#CHUNK 15
+p1 <- ggplot(data = data.mortality, aes(duration, ..density..)) +
+       geom_histogram(binwidth = 1, fill = "blue", alpha = 0.5)
+p2 <- ggplot(data = data.mortality, aes(x = "duration", y = duration)) +
+        geom_boxplot(fill = "blue", alpha = 0.5) 
+grid.arrange(p1,p2,ncol=2)
+```
+
+In CHUNK 16 modify the code from CHUNK 15 to check for outliers in the duration variable after a log transformation.
+
+```{r echo = FALSE}
+#CHUNK 16
+p1 <- ggplot(data = data.mortality, aes(duration, ..density..)) +
+       geom_histogram(binwidth = 1, fill = "blue", alpha = 0.5) 
+p2 <- ggplot(data = data.mortality, aes(x = "duration", y = duration)) +
+        geom_boxplot(fill = "blue", alpha = 0.5) 
+grid.arrange(p1,p2,ncol=2)
+```
+
+Run CHUNK 17 to see the effect of an outlier on a regression line.
+
+```{r echo = FALSE}
+#CHUNK 17
+#The x-values are uniform(0,10) random numbers
+#The y-values are the x-values plus a standard normal variable.
+sample.x <- runif(10, min = 0, max = 10)
+sample.y <- sample.x + rnorm(10, 0, 1)
+#The "real" regression line should be rougly the line y=x.
+line.real <- lm(sample.y~sample.x)
+#Now change the tenth y-value to 50, an outlier
+sample.y[10] = 50
+#Redo the regression.
+line.bias <- lm(sample.y~sample.x)
+#Plot the two regression lines.
+plot(sample.y~sample.x)
+abline(line.real, col = "blue")
+abline(line.bias, col = "red")
+```
+
+Run CHUNK 18 to revisit the duration variable on a log scale.
+
+```{r echo = FALSE}
+p1 <- ggplot(data = data.mortality, aes(x = "duration", y = duration)) +
+        geom_boxplot(fill = "orange", alpha = 0.5) +
+        scale_y_log10()
+p2 <- ggplot(data = data.mortality, aes(x = prodcat, y = duration)) +
+        geom_boxplot(fill = "orange", alpha = 0.5) +
+        scale_y_log10()
+grid.arrange(p1,p2,ncol=2)
+```
+
+CHUNK 19 makes a graph that illustrates the difference between squared and absolute error. It is provided here in case you are interested in how the graph was made.
+
+```{r echo = FALSE}
+x <- seq(-1.5,1.5,0.1)
+errors <- data.frame(error = x,
+                     squared = x^2,
+                     abs = abs(x))
+
+ggplot(data = errors, aes(x = error)) +
+  geom_line(aes(y = squared), color = "red") +
+  geom_line(aes(y = abs), color = "blue") +
+  geom_line(aes(y = 1)) +
+  annotate("rect", xmin = -Inf, xmax = Inf, ymin = -Inf, ymax = 1, fill = "yellow", alpha = 0.2) + 
+  annotate("rect", xmin = -Inf, xmax = Inf, ymin = 1, ymax = Inf, fill = "orange", alpha = 0.2)
+
+```
+
