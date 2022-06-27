@@ -1,0 +1,237 @@
+---
+title: "Module 1.1 What is a predictive modeling problem?"
+output: html_notebook
+---
+
+Run CHUNK 1 now to load needed packages.
+
+```{r}
+#CHUNK 1
+# Load required packages
+required.packages = c("ggplot2", "readr", "corrgram", "plotly", "rpart", 
+                      "tidyr", "tree", "reshape2", "corrplot")
+lapply (required.packages, require, character.only=TRUE)
+```
+
+Now run CHUNK 2 to load the data. You may need to edit the path to the file to reflect where it is stored on your machine. Recall that if the Working Directory is set to the one with your datasets, you need only enter the name of the dataset and not its full path.
+
+```{r}
+#CHUNK 2
+# Load data and take a quick look at the summary
+data.all <- read.csv("BreastCancerWisconsinDataSet.csv")
+summary (data.all)
+```
+
+The next chunk splits the data into random subsets called training and testing. Run CHUNK 3 now. There is no output.
+
+```{r}
+#CHUNK 3
+# Some simple cleasing and set up
+ 
+ # set the target 
+data.all$target [data.all$diagnosis == "M"] = 1
+data.all$target [data.all$diagnosis == "B"] = 0
+
+ # all variables available for training
+vars <- names(data.all)[c(-1, -2, -33)]
+data.all <- data.all[c(-1, -2, -33)]
+
+ # split data into training vs testing
+set.seed(1000)
+data.all$rand <- runif(nrow(data.all))
+data.training <- data.all[which(data.all$rand <= 0.5), ] 
+data.testing <- data.all[which(data.all$rand > 0.5), ]
+data.all$rand <- NULL
+data.training$rand <- NULL
+data.testing$rand <- NULL
+```
+
+The next task is to ensure that the two datasets are similar. Run CHUNK 4 and examine the output graphs. Clicking on one of the graphs at the top provides an expanded view at the bottom.
+
+```{r}
+#CHUNK 4
+# Check each dataset and make sure the target distributions are similar among training, testing and overall set
+ # what do we do if there are sampling bias?
+ # what other exploration should we do besides the target distribution?
+Plot.Dis <- function (data) {
+  ggplot(data, aes(x = target)) + 
+  geom_bar(aes(fill = target, color = target)) + 
+  ggtitle(paste("Distribution of target for", 
+                deparse(substitute(data)), sep = " ")) + 
+  theme(legend.position = "none")
+}
+
+Plot.Dis(data.all)
+Plot.Dis(data.training)
+Plot.Dis(data.testing)
+```
+
+You should see that the training and testing samples have similar distributions for the two values of the target variable (B and M). Now take a look at the distributions of the other variables by running CHUNK 5.
+
+```{r}
+#CHUNK 5
+# What about the distribution of other variables?
+ # any interesting observations from the distribution?
+data.all [1:12] %>%
+  gather() %>% 
+  ggplot(aes(value)) +
+    facet_wrap(~ key, scales = "free") +
+    geom_histogram()
+
+data.all [13:24] %>%
+  gather() %>% 
+  ggplot(aes(value)) +
+    facet_wrap(~ key, scales = "free") +
+    geom_histogram()
+
+data.all [25:31] %>%
+  gather() %>% 
+  ggplot(aes(value)) +
+    facet_wrap(~ key, scales = "free") +
+    geom_histogram()
+```
+
+One thing you might note is that not all the variables have symmetric distributions. Many are right skewed. The next step is to see if there are any relationships between the target and some of the other variables. Run CHUNK 6 to find out.
+
+```{r}
+#CHUNK 6
+# What about looking at the target by variable in the data
+ # since the target is binary (0 vs 1), the plots are harder to see
+ # Is there anything interesting that you see?
+data.all[c(1:12,31)] %>% 
+  gather(-target, key = "var", value = "value") %>% 
+  ggplot(aes(x = value, y = target, color = target)) +
+    geom_point() +
+    facet_wrap(~ var, scales = "free") +
+    theme_bw()
+
+data.all[c(13:24,31)] %>% 
+  gather(-target, key = "var", value = "value") %>% 
+  ggplot(aes(x = value, y = target, color = target)) +
+    geom_point() +
+    facet_wrap(~ var, scales = "free") +
+    theme_bw()
+
+data.all[c(25:31)] %>% 
+  gather(-target, key = "var", value = "value") %>% 
+  ggplot(aes(x = value, y = target, color = target)) +
+    geom_point() +
+    facet_wrap(~ var, scales = "free") +
+    theme_bw()
+```
+
+Cases where the blue and black bars span different ranges indicate variables that may be useful for separating B from M. It is often useful to determine which variables are correlated with others. Run CHUNK 7 to see a display of correlations called a correlogram.
+
+```{r}
+#CHUNK 7
+# Let's check the correlations shall we?
+corrgram(data.all, order = NULL, lower.panel = panel.shade, 
+         upper.panel = NULL, text.panel = panel.txt,
+         main = "Correlation among variables")
+```
+
+That display doesn't help much. Run CHUNK 8 to see an alternative.
+
+```{r}
+#CHUNK 8
+# That was hard to read... Let's give it another try
+ # Calculate correlation matrix
+cormat <- cor(data.all)
+ # Melt the correlation matrix
+melted.cormat <- melt(cormat)
+ # Remember plotly from the welcome notes?
+plot_ly(
+    x = melted.cormat$Var1, y = melted.cormat$Var2,
+    z = melted.cormat$value, colorscale = "Greys", type = "heatmap"
+)
+```
+
+You can hover over each rectangle to see which variables are being measured and the degree of correlation.
+  
+There are many more visualizations and manipulations we can and should do. For the time being, we'll move on to fitting some models. The first model is a logistic regression model. In the chunk below the variables selected were chosen at random. You can change the names to see what happens when other predictor variables are used. Now run CHUNK 9
+
+```{r}
+#CHUNK 9
+# GLM - can you take a guess what the summary means? 
+ # Specifically, what is the warning in red implying? 
+  # It says we have predicted perfect probablity of 0s or 1s - is that OK? 
+ # We'll go into details later on in the course
+Logistic.m1 <- glm(target ~ radius_mean + 
+                           texture_mean +
+                           perimeter_mean +
+                           area_mean +
+                           smoothness_mean	+ 
+                           compactness_mean	+
+                           concavity_mean	+
+                           concave.points_mean +
+                           symmetry_mean, #  Note no specific variables listed means all varaibles are considered
+                                          #  Here we picked random few - try your own set
+                  family = binomial(link='logit'), control = list(maxit = 50), data = data.training)
+
+print(summary(Logistic.m1))
+```
+
+You can see from the p-values (last column) that some variables appear to have more predictive power than others (indicated by a small probability). You can see from the code that this model was built from the training data. Now the model can be checked against the testing data. Run CHUNK 10 now.
+
+```{r}
+#CHUNK 10
+# GLM validation - compare accuracy on training vs testing data
+ # If the model is OK, we should expect the performance to be similar for training and testing
+ # The numbers are close... does that mean they are similar?
+Logistic.m1.pred.train = predict(Logistic.m1, data.training, type = "response")
+Logistic.m1.pred.train  = ifelse(Logistic.m1.pred.train > 0.5, 1, 0)
+error = mean(Logistic.m1.pred.train != data.training$target)
+print(paste('GLM Training Model Accuracy', 1-error))
+
+Logistic.m1.pred.test = predict(Logistic.m1, data.testing, type = "response")
+Logistic.m1.pred.test = ifelse(Logistic.m1.pred.test > 0.5, 1, 0)
+error = mean(Logistic.m1.pred.test != data.testing$target)
+print(paste('GLM Testing Model Accuracy', 1-error))
+```
+
+The fact that the accuracy in the testing model is very close to that for the training model indicates support for the validity of the model. There are other analytics that can be used. The next chunk creates a decision tree. Run CHUNK 11 now.
+
+```{r}
+#CHUNK 11
+# How about a quick decision tree next?
+ # We'll only output a plot and model accuracy for comparison with GLM for now
+ # Note the initial variables are copied over from GLM
+Tree.m1 <- tree (target ~ radius_mean + 
+                           texture_mean +
+                           perimeter_mean +
+                           area_mean +
+                           smoothness_mean	+ 
+                           compactness_mean	+
+                           concavity_mean	+
+                           concave.points_mean +
+                           symmetry_mean, #  Note no specific variables listed means all varaibles are considered
+                                          #  Here we picked random few - try your own set
+                 data = data.training)
+summary(Tree.m1)
+
+ # There are prettier tree plots, but...
+plot(Tree.m1, type = "uniform")
+text(Tree.m1, pretty = 0, cex=0.5)
+```
+
+We close this analysis by checking the tree model against the testing dataset. Run CHUNK 12 now.
+
+```{r}
+#CHUNK 12
+# Did you notice the difference in accuracy?
+ # How does that compare to a GLM?
+ # Trees are known to be unstable and easily overfit - and that's what's showing here. 
+ # We'll learn the ins & outs of this later on
+Tree.m1.pred.train = predict(Tree.m1, data.training, type = "vector")
+Tree.m1.pred.train  = ifelse(Tree.m1.pred.train > 0.5, 1, 0)
+error = mean(Tree.m1.pred.train != data.training$target)
+print(paste('Tree Training Model Accuracy', 1-error))
+
+Tree.m1.pred.test = predict(Tree.m1, data.testing, type = "vector")
+Tree.m1.pred.test = ifelse(Tree.m1.pred.test > 0.5, 1, 0)
+error = mean(Tree.m1.pred.test != data.testing$target)
+print(paste('Tree Testing Model Accuracy', 1-error))
+```
+
+You can see that the testing model didn't perform as well. Go ahead and alter the variable list. Can you find a better model?
+  

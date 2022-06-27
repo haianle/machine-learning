@@ -1,0 +1,40 @@
+My first Notebook 
+
+```{r}
+plot(cars)
+```
+
+Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Ctrl+Alt+I*.
+
+When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Ctrl+Shift+K* to preview the HTML file).
+
+The preview shows you a rendered HTML copy of the contents of the editor. Consequently, unlike *Knit*, *Preview* does not run any R code chunks. Instead, the output of the chunk when it was last run in the editor is displayed.
+
+Load libary ggplot 2
+```{r}
+library(ggplot2)
+```
+Reads the gapMinderDataFiveYear data set into an object
+```{r}
+data.pull <-read.csv("gapMinderDataFiveYear.csv")
+```
+Create a summary of the data
+```{r}
+summary(data.pull)
+```
+plot plot of population vs life expectancy
+```{r}
+plot(data.pull[,"pop"],data.pull[,"lifeExp"], main = "Pop vs. LifeExp",xlab="Pop", ylab="LifeExp")
+```
+Creates a plot of the distribution of population using the geom_histogram function
+from the ggplot2 package
+```{r}
+ggplot(data.pull,aes(x=data.pull[,"pop"])) +
+  geom_histogram() +
+  labs(title="Histogram for Pop", x="Pop", y="Count") +
+  xlim(c(6.001e+04,1.319e+09)) +
+  ylim(c(0,260))
+```
+
+
+

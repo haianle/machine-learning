@@ -1,0 +1,865 @@
+---
+title: "Module 1.2 Predictive Analytics Tools: Programming Basics"
+output: html_notebook
+---
+Let's look at how three different languages can be used to do the following:
+
+  a) print the result of adding two numbers  
+  b) generate an series of 10 uniformly distributed random numbers  
+
+
+For this first example, the code cannot be run. It is presented for illustration.
+
+**Assembly:** (Note: only addition of two numbers is shown here due to the enormous complexity of generating random numbers in assembly!!).
+
+
+```{eval=FALSE, highlight=FALSE}
+; Find the sum of two numbers
+.MODEL SMALL
+.STACK 200H
+.DATA
+    NUMX DB 2
+    NUMY DB 3
+    VAL  DW ?
+    MSG1 DB "The sum is : "
+    DECIMAL  DB "00000$"
+
+.CODE
+BEGIN PROC
+    MOV AX, @DATA
+    MOV DS, AX
+
+    XOR AX, AX
+    MOV AL, NUMX
+    ADD AL, NUMY
+    ADC AH, 0
+    MOV VAL, AX
+
+    MOV AX, VAL
+    CALL AX_to_DEC
+
+    LEA DX, MSG1
+    MOV AH, 9
+    INT 21H
+
+    MOV AX, 4C00H
+    INT 21H
+BEGIN ENDP
+
+AX_to_DEC PROC
+        MOV BX, 10              
+        XOR CX, CX              
+
+    FIRST_LOOP:
+        XOR DX, DX              
+        DIV BX                 
+        PUSH DX                 
+        INC CX                  
+        TEST  AX, AX            
+        JNZ FIRST_LOOP          
+
+        MOV DI, OFFSET DECIMAL  
+    SECOND_LOOP:
+        POP AX                  
+        OR AX, 00110000b        
+        MOV BYTE PTR [DI], AL   
+        INC DI                  
+        LOOP SECOND_LOOP        
+
+        MOV BYTE PTR [DI], '$'  
+        RET
+AX_to_DEC ENDP
+
+END BEGIN
+```
+
+CHUNK 1 is coded in C++. You can run it if you like, but the point of this example is to see what the code looks like. To run this code you will need to install and load the rcpp package. When you run this chunk you may get a message to install Rtools. Clicking yes may not actually do this. But there will be a link provided in the Console to the page from which you can download and install (outside of R) Rtools. Note that C++ will not be used again after this section, so adding this functionality is not necessary for the rest of this course. Not every C++ chunk in this section will produce output that can be viewed.
+
+**C:**
+```{Rcpp eval=FALSE}
+//CHUNK 1a
+#include <Rcpp.h>
+using namespace Rcpp;
+#include <stdio.h>
+#include <stdlib.h>
+
+// [[Rcpp::export]]
+void cSum(){
+  // Find the sum of two numbers
+	int x = 2;
+	int y = 3;
+	int result = x + y;
+	printf("The sum is : %d\n", result);
+	
+	return;
+}
+
+// [[Rcpp::export]]
+NumericVector cRand() {
+  // Generate 10 uniform numbers between 0 and 3
+	NumericVector u_c(10);
+	for (int i=0; i<10; i++){
+	  u_c[i] = 3 * ((double) rand() / (double) RAND_MAX);
+	}
+	return(u_c);
+}
+
+```
+
+```{r}
+#CHUNK 1b
+# See the output of the C++ code in R
+cSum()
+cRand()
+```
+
+And now in CHUNK 2 we see the code in R. 
+
+**R:**
+```{r}
+#CHUNK 2
+# Find the sum of two numbers
+x <- 2
+y <- 3
+result <- x + y
+print(paste("The sum is : ", result))
+
+# Generate 10 uniform numbers between 0 and 3
+u_r <- runif(10, min = 0, max = 3)
+print(u_r)
+```
+
+CHUNK 3 is a C++ example. 
+
+**C**
+```{Rcpp eval=FALSE}
+//CHUNK 3
+#include <stdio.h> // Tells the computer before the program starts it needs to find functions 
+#include <Rcpp.h>  // defined in this file
+                   
+#define PI 3.14    // Tells the computer before the program starts that it should use  
+                   // 3.14 whenever it sees PI in the program
+
+// This is the main function that the computer will run first after it has done all the 
+// preliminary stuff above
+// [[Rcpp::export]]
+int main() {
+  return 0;
+}
+```
+
+This is very different in R. R has much less in the way of structure that you as a programmer have to conform to and you don't have to worry about what gets done first, that's handled entirely by the program when you start an R session. It tells the computer what to do to get started and then tells it to wait for the user to input the first commands. CHUNK 4 has an example.
+
+**R**
+```{r}
+#CHUNK 4
+## Just by opening R everything has already been handled, you can start running 
+## stuff straight away
+x <- 1 + 1
+x
+```
+
+Examples of data type declarations and conversions.
+
+Tip: Variable names are case sensitive meaning the program will interpret "variableName" and "Variablename" as different variables!!
+
+CHUNK 5 is a C++ example.
+
+**C**
+```{Rcpp eval=FALSE}
+//CHUNK 5
+#include <Rcpp.h> 
+#include <stdlib.h>
+#include <sstream>
+
+// Note this function won't compile due to the invalid conversion: x = "hello"
+// To compile the function, comment out the line x = "hello";
+
+// [[Rcpp::export]]
+void chunk8a() {
+
+  int x = 1;                         // Tells the computer to set aside 32 bits (size of an integer) of 
+                                     // space for a variable called x and to put the value 1 in that space
+                          
+  char y[4] = {'0','1','2','3'};     // Tells the computer to set aside enough space for an array of four 
+                                     // characters which is called y and to put the values '0', '1', '2', and '3' there.
+                            
+  x = 5;                             // The computer already knows about x so you can use its name to look 
+                                     // it up and assign the new value of 5 (if you hadn't declared x above 
+                                     // this would fail)
+                          
+  x = "hello";                       // This will fail because you said before that x was an integer, not a string.
+
+
+  // Say you wanted a version of x that was a string (because some functions only work with strings)
+  std::stringstream ss;
+  ss << x;
+  std::string x_string = ss.str();
+    
+  return;
+
+}
+```
+
+And CHUNK 6 is an example in R.
+
+**R**
+```{r}
+#CHUNK 6
+x <- 1                    # R will guess that x should be an integer because you assigned the value 
+x                         # 1 to it (Note there is no explicit way to do this, R will always guess based on your assigned value)
+
+y <- c('0','1','2','3')   # R will guess that y is an array of 4 integers because you assigned a 
+y                         # vector of 4 integers to it
+
+x <- 5                    # This looks exactly like the code above which created a new variable x, 
+x                         # but R will look for any pre-existing variables for you and overwrite them  with this new value
+
+x <- "hello"              # Like above, R will look for any existing variable x and overwrite it, 
+x                         # however now the data type has changed so it will destroy the bit of memory  x used to sit in and allocate a new bit of memory that will fit a string instead
+```
+```{r}
+x <- goodbye              # This will fail because you haven't specified that goodbye should be a string using double quotes ("") - the computer will be looking for a variable called goodbye instead of just using the string literal "goodbye" as the value
+```
+```{r}
+
+# If we want to convert the values of y to integers:
+y <- as.integer(y)
+y
+```
+
+
+CHUNKS 7-9 provide examples of NULL variables. The first is when you declare a variable (so the computer sets aside space for it) but you never give it an initial value. CHUNK 5 is an example in C++
+
+**C**
+```{Rcpp eval = FALSE}
+//CHUNK 7
+#include <Rcpp.h> 
+
+// [[Rcpp::export]]
+int chunk5(){
+
+  int x; // Here we have declared the variable x but haven't given it a value (like x = 1) so it will be NULL 
+         // Note that some languages will let you do this and assign a "default" value (e.g. 0 for numeric variables)
+  
+}
+// Note we cannot do this in R using basic variables but we will see an example later on using data frames.
+```
+
+
+The second is when you explicitly assign a NULL value to a variable (note the subtle difference between `NULL` and `NA`). Run CHUNK 6 to see an example.
+
+**R**
+```{r}
+#CHUNK 8
+x <- NULL # This says that x is a NULL "object"
+x
+
+y <- c(1,2,3,NA,5) # This says that the 4th element of y has a "value" of NA
+y
+sum(y) # Note what happens when we try to add the numbers in the array. You need to be very careful of NA values!
+sum(y, na.rm = TRUE)
+```
+
+The third is when the computer tries to convert between data types and cannot convert properly. Run CHUNK 7 to see an example.
+
+**R**
+```{r}
+#CHUNK 9
+x <- "5.25"       # A lot of the time when you read data into a program from a file, it will interpret numbers as strings
+as.numeric(x)     # Thus we would like to convert them to numbers to be used in the program
+
+y <- "5a"         # Sometimes this might not work because of errors in that data 
+as.numeric(y)     # So NAs are introduced because the computer doesn't know what the equivalent numerical value should be
+```
+
+
+Try guessing what the values of the following statements are and check by running the code (note the use of parentheses) in CHUNK 10.
+
+```{r}
+#CHUNK 10
+x <- 1
+y <- 4
+z <- TRUE
+
+!z
+x > y
+x <= (y - 3)
+x + y == 4                     # Can you explain the output of this? Remember TRUE/FALSE is stored 
+                               # beneath the hood as 1/0
+(x + y) == 4
+(x == 1) && (y == 4)
+x == 1 && y > 3 || z || !z     # Note this is confusing to read, it is better to use paretheses to clearly 
+                               # indicate which pairs you want evaluated first
+
+```
+
+CHUNK 11 has some C++ examples.
+
+**C**
+```{Rcpp eval=FALSE}
+//CHUNK 11a
+#include <Rcpp.h> 
+#include <stdlib.h>
+
+// [[Rcpp::export]]
+int chunk11() {
+  int mat[10][5]; // An empty matrix in C with 10 rows and 5 columns
+  
+  // You can also define your own structures to give more meaning to collections of information
+  struct Details {
+    int age;
+    double height;
+    double weight;
+  };
+  
+  // Once we have defined our structure we can create a new variable "x" that has that structure
+  struct Details x;
+  
+  // Then we can access the "attributes" of x in meaningful ways
+  x.age = 25;
+  x.height = 165;
+  x.weight = 70;
+
+  return x.age;
+}
+```
+
+```{r}
+#CHUNK11b
+chunk11()
+```
+
+And now for some examples in R. Examine and run CHUNKS 12-14.
+
+```{r}
+#CHUNK 12
+# Creating a matrix in R:
+mat <- matrix(data = runif(50), nrow = 10, ncol = 5)
+mat
+```
+
+```{r}
+#CHUNK 13
+# R also has special structures that are good for storing data called data frames
+df <- as.data.frame(mat)
+colnames(df) <- c("Col1","Col2", "Col3", "Col4", "Col5")
+
+df
+
+print("Col1 from df:")
+df$Col1
+
+print("column 1 from mat:")
+mat[,1]
+```
+
+```{r}
+#CHUNK 14
+# Creating your own structures in R is slightly more complicated (as a statistical language, there isnt as much need for this kind of functionality as in a traditional programming language like C)
+Details <- function(initialAge = NA, initialHeight = NA, initialWeight = NA) {
+  # Essentially this is a function that creates a "named" list and returns it to the object with the values in it. That
+  # way the values are all combined neatly in a list and can be accessed by name (instead of having them in separate 
+  # variables all over the place)
+  me <- list(age = initialAge,
+             height = initialHeight,
+             weight = initialWeight)
+  class(me) <- append(class(me),"Details")
+  return(me)
+}
+
+x <- Details(25,165,70)
+
+# Note the use of "$" in R to access the attributes of an object
+# The object x (x a Details object) has 3 attributes
+# called age, height and weight.
+# All these values are now stored in the single object x and can be accessed by name:
+x$age
+x$height
+x$weight
+```
+
+CHUNK 15 is a "for" loop example in C++. You may have run CHUNK 15b more than once to get it to provide the desired result.
+
+**C**
+```{Rcpp eval=FALSE}
+//CHUNK 15a
+#include <Rcpp.h> 
+#include <stdio.h>
+
+// [[Rcpp::export]]
+void chunk15() {
+  // This for loop starts at 1 (i=1), keeps going back to the start of the for loop 
+  // until i = 5 (i<=5) and each time it finishes a loop it increments i by 1 (i++)
+  for (int i = 1; i <= 5; i++) {
+    printf("%d\n",i);
+  }
+  
+  return;
+}
+```
+
+```{r}
+#CHUNK 15b
+chunk15()
+```
+
+Here is how easy it is to do in R. Run CHUNK 16.
+
+**R**
+```{r}
+#CHUNK 16
+# This for loop repeats itself for each value of i in the range 1 to 5
+for(i in 1:5) {
+  print(i)
+}
+```
+
+Read through the below examples in C and R then try the exercises in R (you might want to run them a few times to see the different results for different random values of x). You may have run CHUNK 17b more than once to get it to provide the desired result.
+
+**C**
+```{Rcpp eval=FALSE}
+//CHUNK 17a
+#include <Rcpp.h>
+#include <stdio.h>
+#include <stdlib.h>
+
+// [[Rcpp::export]]
+void chunk17() {
+  // For Loop
+  double x;
+  for (int i = 1; i <= 5; i++) {
+    x = (double) i * 2.0;
+    printf("%f\n",x);
+  }
+  
+  // If/Else statements
+  x = (double) rand() / (double) RAND_MAX;
+  if (x < 0.5) {
+    printf("x is less than 0.5\n");
+  } else if (x < 0.75) {
+    printf("x is less than 0.75 but greater than 0.5\n");
+  } else {
+    printf("x is greater than 0.75\n");
+  }
+  
+  // While loop
+  x = 1.0;
+  while (x <= 16) {
+    x = x * 2.0;
+    printf("%f\n",x);
+  }
+  
+  // Continuation statement
+  for (int i = 1; i <= 5; i++) {
+    x = (double) rand() / (double) RAND_MAX;
+    printf("%f\n",x);
+    
+    if (x < 0.5) {
+      break;
+    }
+  }
+  
+  return;
+}
+
+```
+
+```{r}
+#CHUNK17b
+chunk17()
+```
+
+CHUNKS 18-22 provide R examples.
+
+**R**
+```{r}
+#CHUNK 18
+# For loop
+for(i in 1:5) {
+  x <- i * 2
+  print(x)
+}
+```
+
+```{r}
+#CHUNK 19
+# if/Else statemnts
+x <- runif(1)
+print(x)
+if (x < 0.5) {
+  print("x is less than 0.5")
+} else if (x < 0.75) {
+  print("x is less than 0.75 but greater than 0.5")
+} else {
+  print("x is greater than 0.75")
+}
+```
+
+```{r}
+#CHUNK 20
+# OR
+x <- runif(1)
+print(x)
+s <- ifelse(x < 0.5, 
+            "x is less than 0.5", 
+            ifelse(x < 0.75, 
+                   "x is less than 0.75 but greater than 0.5",
+                   "x is greater than 0.75"))
+print(s)
+```
+
+```{r}
+#CHUNK 21
+# While loop
+x <- 1
+while (x < 16) {
+  x <- x * 2
+  print(x)
+}
+```
+
+```{r}
+#CHUNK 22
+# Continuation
+for (i in 1:50) {
+  x <- runif(1)
+  print(x)
+  
+  if (x < 0.25) {
+    break # breaks out of the for loop
+  } else if (x > 0.75) {
+    next # Skips the rest of the code in the for loop and continues to the next loop
+  }
+  
+  print("Hello")
+}
+```
+R
+
+**Exercises:**
+1. Without running the R code in CHUNK 23, describe what it does (you can run it afterwards to check)
+
+```{r}
+#CHUNK 23
+mx <- 99
+mn <- 1
+
+x <- round(runif(1, min = mn, max = mx))
+y <- round(runif(1, min = mn, max = mx))
+
+print(paste("x = ", x,", y = ", y, ", mx = ", mx, ", mn = ", mn))
+
+while (x!=y) {
+  if (x < y) {
+    mx <- y
+  } else {
+    mn <- y
+  }
+  y <- round(runif(1, min = mn, max = mx))
+  print(paste("x = ", x,", y = ", y, ", mx = ", mx, ", mn = ", mn))
+}
+```
+
+**Answer:** The code above tries to guess a random number by making an initial guess, asking whether it was higher or lower, then making another guess by adjusting the max/min values it guesses between based on the result.
+
+2. Write a basic Rock, Paper, Scissors game that stops either when one of the players reaches a score of 4, or the total number of games reaches 7. You will find some helpful functions in CHUNK 25 to get you started. **Note** you will need to have the console open and visible if using the R Notebook code chunks to run your code because it will be waiting for your input.
+
+```{r}
+#CHUNK 24
+
+
+
+```
+
+```{r}
+#CHUNK 25
+getSymbol <- function(number) {
+# Function that takes a number (0,1,2) and returns the associated rock/paper/scissor
+# Note you don't need to use this function if you are happy to just use the number representation
+  if (number == 0) {
+    return("rock")
+  } else if (number == 1) {
+    return("paper") 
+  } else if (number == 2) {
+    return("scissors")
+  } else {
+    stop("Invalid Play!!")
+  }
+}
+
+############
+# Start Game
+############
+
+computerScore <- 0 
+playerScore <- 0
+
+print(paste("Let's Play RPS! Score: You ",playerScore," vs Computer ", computerScore))
+
+playerPlay <- readline(prompt = "rock/paper/scissors?: ") # Use this to get input from the player 
+                                                          # (it will appear in the console)
+computerPlay <- getSymbol(sample(x = c(0,1,2), size = 1))
+
+## Your code here
+
+
+```
+
+**Sample Solution:**
+CHUNK 26 provides one solution.
+
+```{r}
+#CHUNK 26
+getSymbol <- function(number) {
+# Function that takes a number (0,1,2) and returns the associated rock/paper/scissor
+# Note you don't need to use this function if you are happy to just use the number representation
+  if (number == 0) {
+    return("rock")
+  } else if (number == 1) {
+    return("paper") 
+  } else if (number == 2) {
+    return("scissors")
+  } else {
+    stop("Invalid Play!!")
+  }
+}
+
+############
+# Start Game
+############
+
+computerScore <- 0 
+playerScore <- 0
+
+maxGames <- 7
+numToWin <- 4
+
+for (game in 1:maxGames) {
+  
+  print(paste("Let's Play RPS! Score: You ",playerScore," vs Computer ", computerScore))
+
+  playerPlay <- readline(prompt = "rock/paper/scissors?: ") # Use this to get input from the player 
+                                                            # (it will appear in the console)
+  computerPlay <- getSymbol(sample(x = c(0,1,2), size = 1))
+  
+  if (computerPlay == playerPlay) {
+    print("Draw!")
+    next
+  } else if (computerPlay == "scissors") {
+    if (playerPlay == "rock") {
+      print("Win!")
+      playerScore <- playerScore + 1
+    } else if (playerPlay == "paper") {
+      print("Lose!")
+      computerScore <- computerScore + 1
+    }
+    
+  } else if (computerPlay == "paper") {
+    if (playerPlay == "scissors") {
+      print("Win!")
+      playerScore <- playerScore + 1      
+    } else if (playerPlay == "rock") {
+      print("Lose!")
+      computerScore <- computerScore + 1      
+    }
+    
+  } else if (computerPlay == "rock") {
+     if (playerPlay == "scissors") {
+        print("Lose!")
+      computerScore <- computerScore + 1     
+     } else if (playerPlay == "paper") {
+      print("Win!")
+      playerScore <- playerScore + 1       
+     }
+  }
+  
+  if (computerScore >= numToWin) {
+    break
+  }
+  if (playerScore >= numToWin) {
+    break
+  }
+}
+
+print("The End!!")
+
+
+if (computerScore > playerScore) {
+  print("Loser!")
+} else if (playerScore > computerScore) {
+  print("Winner!") 
+} else {
+  print("Draw!")
+}
+
+print(paste("You", playerScore, "vs Computer", computerScore))
+```
+
+Try running the following function definitions in CHUNK 27, notice they don't do anything but the functions will appear in your environment (top right in RStudio unless you have changed your layout).
+
+**R**
+```{r}
+#CHUNK 27
+testFunction <- function(message, times) {
+  for (i in 1:times) {
+    print(message)
+  }
+}
+
+factorial <- function(number) {
+  if (number == 1) {
+    return(1)
+  } else {
+    return(number * factorial(number - 1)) # This is an example of a recursive function - 
+                                           # i.e. it calls itself inside itself
+  }
+}
+```
+
+Now lets call the functions by passing in some actual arguments. Note that we can optionally *name* our arguments using the placeholders in the function definitions. If we choose to name the arguments they don't have to be in the same order, otherwise they do. Run the code in CHUNKS 28 and 29 to see the functions in action.
+
+**R**
+```{r}
+#CHUNK 28
+testFunction(message = "Hello", times = 3)
+testFunction("Un-named Arguments", 4)
+testFunction(times = 2, message = "Different order of arguments")
+testFunction(2, "This will give an error")  # What does this error mean? Think back to when we talked about how R converts between data types.
+```
+ 
+```{r}
+#CHUNK 29
+x <- factorial(6)
+x
+
+factorial(number = 22)
+```
+
+
+**Exercise:** For the following user defined functions in C and R, identify the four components of the function structure. Note that some functions have no explicit return values (i.e. they return nothing). What are some of the differences you note between the function definitions in R and C?
+
+**C**
+```{Rcpp eval=FALSE}
+//CHUNK 30
+#include <Rcpp.h>
+
+// [[Rcpp::export]]
+double sumMatrixRow(Rcpp::NumericMatrix matrix, int row) {
+  // Sums the r'th row of a 5*5 matrix
+  
+  if (row > 5 || row < 0) {
+    return -1; // row doesn't exist so return an invalid result
+  }
+  
+  double result = 0;
+  
+  for (int i = 0; i < 5; i+=1) {
+    result += matrix(row,i);
+  }
+  
+  return result;
+}
+
+// [[Rcpp::export]]
+void printHelloWorld() {
+  // Prints hello world to console
+  printf("Hello World!");
+  
+  return; 
+}
+
+```
+
+**R**
+```{r}
+#CHUNK 31
+ReplaceNAs <- function(data, replacement) {
+  # Replaces NAs in a dataframe with the specified replacement value
+  data.temp <- data
+  
+  data.temp[is.na(data.temp)] <- replacement
+  
+  return (data.temp)
+}
+
+
+# You saw this function in section 1.1 
+Plot.Dis <- function (data) {
+  ## Plots the distribution of the variable "target" in the input data frame "data""
+  ggplot(data, aes(x = target)) + 
+  geom_bar(aes(fill = target, color = target)) + 
+  ggtitle(paste("Distribution of target for", 
+                deparse(substitute(data)), sep = " ")) + 
+  theme(legend.position = "none")
+}
+
+```
+
+**Exercise:** Write a function named "numBigger" that goes through an array of numbers and counts how many are larger the the one before it (first one doesn't count). For example, for the array [1,3,2,5,9,1], the answer would be 3.
+
+**Note** to access an element of an array you use the syntax `x[3]`, which would give the third element of `x`.
+
+```{r}
+#CHUNK 32
+# Your code goes here
+
+# To test that it works, the following should all evaluate to TRUE
+x <- c(1,3,2,5,9,1)
+numBigger(x) == 3
+
+y <- c(-1.1,2,5,200,200.001) 
+numBigger(y) == 4
+
+z <- c(3,2)
+numBigger(z) == 0
+
+```
+
+Run CHUNK 33 in R and identify which form of input/output it is using. Make sure you have the console window open and visible.
+
+```{r}
+#CHUNK 33
+print("Do you want to read the data in?")
+answer <- readline(prompt = "y/n: ")
+
+if (answer == "y") {
+  data.all <- read.csv("BreastCancerWisconsinDataSet.csv")
+} else {
+  data.all <- data.frame()
+}
+
+print("Do you want to write the first 10 rows of data to console or file?")
+answer <- readline(prompt = "c/f: ")
+
+if (answer == "c") {
+  print(data.all[1:10,])
+} else if (answer == "f") {
+  write.csv(data.all[1:10,], file = "data_sample.csv")
+} else {
+  stop(paste("ERROR: incorrect input: '", answer,"'"))
+}
+
+```
+
+Now that you have had a crash course in programming, try answering these questions to see how much you have learned!
+
+**Question 1:** What will be the output of the following expression?: 
+```{r}
+#CHUNK 34
+x <- 2
+y <- 3
+z <- sum(1,-2,3)
+
+(z == y) || ((z == x) && ((x + y) < 5)) # = ?
+```
+
+**Question 2:** What is wrong with the code in CHUNK 35? (Note, not a good idea to run this one...)
+```{r eval=FALSE}
+#CHUNK 35
+while (x < 10) {
+  x <- runif(1, min = 0, max = 9)
+  print(x)
+}
+```
+
