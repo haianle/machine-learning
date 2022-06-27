@@ -1,0 +1,554 @@
+---
+title: 'Module 1.3 Predictive Analytics Tools: Introduction to R'
+output:
+  html_notebook: default
+---
+
+CHUNK 11 provides a sample solution.
+
+```{r}
+#CHUNK 11
+# 1)
+data.all <- read.csv("gapMinderDataFiveYear.csv",stringsAsFactors = TRUE)
+
+# 2)
+data.bin <- data.all # create the new data frame
+
+# Iterate through each level in the factor "continent"
+for (level in levels(data.bin$continent)) {
+  # Create the name of the new variable (e.g. continent_Europe)
+  varName <- paste("continent_",level,sep = "") 
+  
+  # Create the new column, if the value in "continent" is equal to the current level, then 1, otherwise 0.
+  data.bin[, varName] <- ifelse(data.bin$continent == level, 
+                                1,
+                                0)
+}
+
+# 3)
+Binarize <- function(dataframe, variableList) {
+  # For each factor variable in variableList, creates binary flag columns in df for each level in those variables
+  
+  for (variable in variableList) {
+    var.column <- dataframe[,variable]
+    
+      if (!(is.factor(var.column))) {
+        warning(paste(variable, "variable is not of type factor, not binarized\n"))
+        }
+    
+    
+    for (level in levels(var.column)) {
+      varName <- paste(variable, "_", level, sep = "") 
+      
+      dataframe[, varName] <- ifelse(var.column == level, 
+                                1,
+                                0)
+    }
+  }
+  return(dataframe)
+}
+```
+
+CHUNK 13 provides space for your solution to Exercise 1.3.7.
+
+```{r}
+#CHUNK 13
+# 1)
+
+AppendResults <- function(resultsTable = NULL, newModelName, predicted, actual) {
+  
+  ## If we don't already have a results table then create an empty one
+  if (is.null(resultsTable)) {
+    resultsTable <- data.frame(modelName = character(0), errorRate = numeric(0))
+  }
+  
+  ## Calculate the result:
+  error = mean(abs(predicted - actual))
+  
+  ## Append results to table
+  newrow <- data.frame(modelName = newModelName, errorRate = error)
+  resultsTable <- rbind(resultsTable, newrow)
+  
+  return(resultsTable)
+}
+
+# 2)
+## Assuming we have the results still in memory (re-run Section 1.1 to get them)
+results <- AppendResults(newModelName = "Logistic_Regression", predicted = Logistic.m1.pred.test, actual = data.testing$target)
+results <- AppendResults(resultsTable = results, newModelName = "Decision_Tree", predicted = Tree.m1.pred.test, actual = data.testing$target)
+
+# 3)
+randomModel.pred <- rbinom(n = nrow(data.testing), size = 1, prob = (sum(data.training$target))/nrow(data.training))
+results <- AppendResults(resultsTable = results, newModelName = "Random", predicted = randomModel.pred, actual = data.testing$target)
+
+results
+```
+
+For Part 1 of Exercise 1.3.9 examine CHUNK 14 and determine what it does. Then modify the Plot.Dis function as instructed in Part 2.
+
+```{r}
+#CHUNK 14
+# Load required packages
+required.packages = c("ggplot2", "readr")
+invisible(lapply (required.packages, library, character.only=TRUE))
+
+# Load data 
+data.all <- read.csv("../BreastCancerWisconsinDataSet.csv")
+
+# Basic cleaning
+ # set the target: we are trying to predict whether a diagnosis is malignant (M) or benign (B).
+data.all$target [data.all$diagnosis == "M"] = 1
+data.all$target [data.all$diagnosis == "B"] = 0
+
+ # all variables available for training
+vars <- names(data.all)[c(-1, -2, -33)]
+data.all <- data.all[c(-1, -2, -33)]
+
+# Function for creating a certain plot given some data as input
+Plot.Dis <- function (data) {
+  ggplot(data, aes(x = data$target)) + 
+  geom_bar(aes(fill = data$target, color = data$target)) + 
+  ggtitle(paste("Distribution of target for", 
+                deparse(substitute(data)), sep = " ")) + 
+  theme(legend.position = "none")
+}
+
+Plot.Dis(data.all)
+```
+
+CHUNK 15 provides a sample solution.
+
+```{r}
+#CHUNK 15
+# 2.a)
+Plot.Dis <- function (data) {
+  ggplot(data, aes(x = radius_mean)) + 
+  geom_bar(aes(fill = radius_mean, color = radius_mean)) + 
+  ggtitle(paste("Distribution of radius_mean for", 
+                deparse(substitute(data)), sep = " ")) + 
+  theme(legend.position = "none")
+}
+
+Plot.Dis(data.all)
+
+# 2.b)
+Plot.Dis <- function (data, var) {
+  ggplot(data, aes(x = data[, var])) + 
+  geom_bar(aes(fill = data[, var], color = data[, var])) + 
+  ggtitle(paste("Distribution of var for", 
+                deparse(substitute(data)), sep = " ")) + 
+  theme(legend.position = "none")
+}
+
+Plot.Dis(data.all, "radius_mean")
+```
+
+Modify CHUNK 16 per the instructions in Exercise 1.3.10.
+
+```{r}
+#CHUNK 16
+numSeq<-c(0:9)
+n <- 1e6
+GetNthLexPermutation <- function(sequence,n) {len <- length(sequence)  
+  if (n > prod(1:len)|n<1) {stop("The number required is beyond the number of possible permutations.")}
+  else {nth <- numeric(len)  
+    for (i in 1:(len - 1)) {
+      if (n==0) {nth[i]<-sequence[length(sequence)]}
+      else {tmp<-prod(1:(len-i)) 
+        div<-floor((n-1)/tmp)
+        nth[i]<-sequence[div+1]}
+      n <- n%%tmp
+      sequence <-sequence[sequence!=nth[i]]}
+    nth[len] <- sequence
+    return(nth)}} 
+cat("The result is:",GetNthLexPermutation(numSeq,n),"\n")
+```
+
+The solution to Exercise 1.3.10 is in CHUNK 17.
+
+```{r}
+#CHUNK 17
+numSeq <- c(0:9)
+n <- 1e6
+
+# Gets the nth lexicographical permutation of the given sequence
+GetNthLexPermutation <- function(sequence, n) {
+  
+  len <- length(sequence)  # calculate the length of the sequence
+  
+  # Check if n is within the total number of permutations
+  if (n > prod(1:len) | n < 1) {
+    stop("The number required is outside the number of possible permutations.")
+  } else {
+    nth <- numeric(len)  # Create a vector called nth of length len to store the nth permutation
+    
+    # Go through each place in the vector nth and work out what character belongs there
+    for (i in 1:(len - 1)) {
+      # We change n each time, when it is 0 we want the last character in what is left of the sequence
+      if (n == 0) { 
+        nth[i] <- sequence[length(sequence)]
+      } else {
+        # The next character is given by the (n-1)/(total number of permutations) position in the remaining sequence
+        tmp <- prod(1:(len - i)) 
+        div <- floor((n - 1) / tmp)
+        nth[i] <- sequence[div + 1]
+      }
+      
+      n <- n %% tmp  # Change n to be n mod tmp (we have found the first few characters that start
+                     # the nth permutation, so we are looking for the remaining characters which is the (n mod tmp)th
+                     # permutation of the remaining characters)
+      sequence <- sequence[sequence != nth[i]]  # Remove the character we just used from the sequence 
+    }
+    
+    nth[len] <- sequence  # There is only one character left in the sequence which is the last one
+    return (nth)  # Return the sequence
+  }
+}
+
+# Print out the results
+cat("The result is:", GetNthLexPermutation(numSeq, n), "\n")
+```
+
+Exercise 1.3.11: Use CHUNK 18 to load the gapminder data into an object.
+
+```{r}
+#CHUNK 18
+# Read the data into an object called "data.full"
+
+```
+
+CHUNK 19 provides space to complete Exercise 1.3.11.
+
+```{r}
+#CHUNK 19
+# Write your R code here
+```
+
+CHUNK 20 contains a sample solution to Exercise 1.3.11.
+
+```{r}
+#CHUNK 20
+# Sample solution
+
+# Read the data into an object called data.full:
+data.full <- read.csv("../gapminderDataFiveYear.csv",stringsAsFactors = TRUE)
+
+# Do some basic exploration
+colnames(data.full)
+data.full[1:10,]
+summary(data.full)
+sapply(data.full, class)
+
+```
+
+Use CHUNK 21 to write your code for Exercise 1.3.12.
+    
+```{r}
+#CHUNK 21
+# Write your R code here
+
+
+```
+
+CHUNK 22 has a solution to Exercise 1.3.12.
+
+```{r}
+#CHUNK 22
+# Necessry functions
+Plot.Dis <- function (data) {
+  ggplot(data, aes(x = data$lifeExp)) + 
+  geom_bar(aes(fill = 0, color = 0),
+           stat = "bin") + 
+  ggtitle(paste("Distribution of lifeExp for", 
+                deparse(substitute(data)), sep = " ")) + 
+  theme(legend.position = "none")
+}
+
+
+# Sample solution 1
+data.train <- data.full[data.full$year < 2000, ]
+data.holdout <- data.full[data.full$year >= 2000, ]
+
+# Sample solution 2
+data.full$rand <- runif(nrow(data.full), min = 1, max = 10)
+data.train <- data.full[data.full$rand <= 8, ]
+data.holdout <- data.full[data.full$rand > 8, ]
+
+# Note these are not the only methods and depending on the problem they might not be the best either.
+
+Plot.Dis(data.full)
+Plot.Dis(data.train)
+Plot.Dis(data.holdout)
+```
+
+CHUNK 23 provides code for saving plots.
+
+```{r eval=FALSE}
+#CHUNK 23
+png(filename = "PlotDirectoryName/descriptiveNameForPlot.png") # Open the R graphics device
+plot(...) # Run your plots
+dev.off() # Close the graphics device
+```
+
+Use the space in CHUNK 24 to work on Exercise 1.3.13.
+
+```{r}
+#CHUNK 24
+# Write your R code here
+
+
+```
+
+CHUNK 25 contains a sample solution to Exercise 1.3.13.
+
+```{r}
+#CHUNK 25
+# Sample solution
+png(filename="plot.png")
+plot(data.full$lifeExp~data.full$year, col = data.full$continent)
+dev.off()
+```
+
+CHUNK 26 provides examples of bad and good code for running a linear model. Don't run this code as the setup is hypothetical, not related to any data set you have loaded.
+  
+```{r eval = FALSE}
+# Bad:
+
+myModel <- glm(Y~A+B+C+D+E+F+G+H+I+J+K+L+M+N+O+P+Q+R+S+T+U+V+W+X+Z,family = gaussian(link = "identity"), control = list(epsilon = 1e-8, maxit = 50, trace = FALSE), data = data.training)
+
+# Good:
+
+# Control parameters
+myModel.control1 <- list(epsilon = 1e-8, # Comment about chosen value
+                         maxit = 100, 
+                         trace = FALSE)
+# If we want to test more than one set, define here so easy to see differences
+myModel.control2 <- list(epsilon = 1e-8, 
+                         maxit = 50, 
+                         trace = TRUE)
+
+# GLM Formula
+smallformula <- as.formula("Y ~ A + B + C + D + E + F + G")  # Unweildy if their are too many variables
+
+# For a large number of variables we want to build the list of variables we will be modelling 
+# as a list first (which we can easily modify if we need to)
+model.variables.all <- colnames(data.all)
+varsToDrop <- c("Y","C","D","Z")  # specify variables we don't want
+model.variables <- model.variables.all[!(model.variables.all %in% varsToDrop)]  # Keep only those variables which 
+                                                                                #aren't in the ones we are dropping
+bigformula <- as.formula(paste("Y ~",paste(model.variables, collpse = "+"), sep = ""))
+
+# Model 
+myModel <- glm(bigformula,
+               family = gaussian(link = "identity"),
+               control = myModel.control2,
+               data = data.training)
+
+```
+
+
+CHUNK 27 provides space for a solution to Exercise 1.3.14.
+
+```{r}
+#CHUNK 27
+# Write your code here
+
+
+```
+
+CHUNK 28 provides a sample solution to Exercise 1.3.14.
+
+```{r}
+#CHUNK 28
+# Control parameters
+glm.control <- list(epsilon = 1e-8,  # Default
+                    maxit = 50,  # Default
+                    trace = FALSE)  # Default
+
+# GLM formula
+model.target <- "lifeExp"
+model.variables <- colnames(data.full)[!(colnames(data.full) %in% model.target)]
+glm.formula <- as.formula(paste(model.target, " ~ ", paste(model.variables, collapse = "+"), sep = ""))
+
+# GLM model
+glm.fit <- glm(glm.formula,
+               family = gaussian(link = "identity"),
+               control = glm.control,
+               data = data.train)
+
+
+```
+
+CHUNK 29 provides room for your solution to Exercise 1.3.15.
+
+```{r}
+#CHUNK 29
+# Write your code here
+
+
+```
+
+CHUNK 30 has a sample solution to Exercise 1.3.15.
+
+```{r}
+#CHUNK 30
+# Look at coefficiemts
+glm.fit$coefficients
+
+# Function for model performance
+GetModelPerformance <- function(model, testData, trainData) {
+  # Predict both train and test data sets
+  model.predict.train <- predict(model, trainData, type = "response")
+  model.predict.test <- predict(model, testData, type = "response")
+  
+  # Get mean error
+  error.train <- mean(abs(model.predict.train - trainData[, "lifeExp"]))
+  error.test <- mean(abs(model.predict.test - testData[, "lifeExp"]))
+  
+  # Print results
+  print(paste("Training error:", error.train))
+  print(paste("Test error:", error.test))
+}
+
+GetModelPerformance(glm.fit, data.holdout, data.train)
+
+plot(glm.fit)
+
+```
+
+CHUNK 31 illustrates a command that will save your workspace. 
+
+```{r}
+#CHUNK 31
+save.image("~/test.RData") # note '~/' refers to the root directory and can be replaced with '' to refer to the current working directory, or  folder path of your choice
+```
+
+To reload your workspace later, use the command illustrated in CHUNK 32.
+
+```{r}
+#CHUNK 32
+load("~/test.RData")
+```
+
+
+CHUNK 33 provides an example of how to save a dataframe for later use. Keep in mind that a path is not needed if everything is stored in your working directory.
+
+```{r}
+#CHUNK 33
+data.raw <- data.frame(Var1 = c(1,2,3), Var2 = c(4,5,6)) # the raw data
+
+data.transformed <- rbind(data.raw, c(10,11)) # Adds a new row to the data
+
+save(data.transformed, file = "[folder_path]/Module_X_data_transformed.RData") # Note .RData extension 
+```
+
+To reload that data in a future R session use code as in CHUNK 34.
+
+```{r}
+#CHUNK 34
+data.transformed <- load("[folder_path]/Module_X_data_transformed.RData")
+```
+
+CHUNK 35 contains code to modify for Exercise 1.3.16.
+
+```{r}
+#CHUNK 35
+## Load required packages
+required.packages = c("ggplot2", "readr", "tidyr", "tree")
+lapply (required.packages, require, character.only=TRUE)
+
+## Load data 
+data.all <- read.csv("BreastCancerWisconsinDataSet.csv")
+
+## Some simple cleaning and set up
+ 
+# set the target: we are trying to predict whether a diagnosis is malignant (M) or benign (B).
+data.all$target [data.all$diagnosis == "M"] = 1
+data.all$target [data.all$diagnosis == "B"] = 0
+
+# all variables available for training
+vars <- names(data.all)[c(-1, -2, -33)]
+data.all <- data.all[c(-1, -2, -33)]
+
+# split data into training vs testing
+set.seed(1000)
+data.all$rand <- runif(nrow(data.all))
+data.training <- data.all[which(data.all$rand <= 0.5), ] 
+data.testing <- data.all[which(data.all$rand > 0.5), ]
+data.all$rand <- NULL
+data.training$rand <- NULL
+data.testing$rand <- NULL
+
+##
+# Save the data.all, data.training and data.testing objects into appropriately named .RData files
+##
+
+## Clean up (dont need data.all anymore)
+rm(data.all)
+
+## Fit a simple decision tree model
+Tree.m1 <- tree (target ~ radius_mean + 
+                           texture_mean +
+                           perimeter_mean +
+                           area_mean +
+                           smoothness_mean	+ 
+                           compactness_mean	+
+                           concavity_mean	+
+                           concave.points_mean +
+                           symmetry_mean, 
+                 data = data.training)
+
+##
+# Save the Tree.m1 model into and appropriately named .RData file
+##
+
+## Predict results - re-run this code after you reload the objects you saved. Make sure the results are the same!
+Tree.m1.pred.train = predict(Tree.m1, data.training, type = "vector")
+Tree.m1.pred.train  = ifelse(Tree.m1.pred.train > 0.5, 1, 0)
+error = mean(Tree.m1.pred.train != data.training$target)
+print(paste('Tree Training Model Accuracy', 1-error))
+
+Tree.m1.pred.test = predict(Tree.m1, data.testing, type = "vector")
+Tree.m1.pred.test = ifelse(Tree.m1.pred.test > 0.5, 1, 0)
+error = mean(Tree.m1.pred.test != data.testing$target)
+print(paste('Tree Testing Model Accuracy', 1-error))
+
+## Clean up
+rm(list = ls()) # This will remove all objects in the environment
+
+```
+
+CHUNK 36 provides code for saving a data file in csv format for use in other programs.
+
+```{r}
+#CHUNK 36
+write.csv(x = data.transformed,
+          file = "[folder_path]/Module_X_data_transformed.csv", # Note .csv extension
+          na = "?", # Use to change the value used for NAs (default is "NA")
+          row.names = FALSE # Whether you want row names to appear in the first column
+)
+```
+
+CHUNK 37 provides code for saving a data file in SAS format.
+
+```{r}
+#CHUNK 37
+library(foreign) # Allows reading and writing of data from/for other programs like SPSS and SAS
+
+write.foreign(dataframe,"[folder_path]/Module_X_data_transformed.sas", package="SAS") # Writes the data as a plain text file and also creates an instruction file that will allow SAS to read it
+```
+
+CHUNK 38 illustrates the command for saving your history.
+
+```{r}
+#CHUNK 38
+savehistory(file = "[folder_path]/Module_X_history.Rhistory")
+```
+
+If you wish to load a previously saved history you can use CHUNK 39.
+
+```{r}
+#CHUNK 39
+loadhistory(file = "[folder_path]/Module_X_history.Rhistory")
+```
+
