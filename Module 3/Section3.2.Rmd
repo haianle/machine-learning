@@ -1,0 +1,181 @@
+---
+title: "Module 3.2 Understanding Data: Describing Variables"
+output: html_notebook
+---
+Run CHUNK 1 to load the Gapminder Five Year data set you have previously used.Be sure the working directory is properly set so the dataset can be found.
+
+```{r eval=FALSE, echo=FALSE}
+#CHUNK 1
+data.all <- read.csv("../gapminderDataFiveYear.csv",stringsAsFactors = TRUE)
+```
+
+Now run CHUNK 2 to see two of the variables in the dataset.
+
+```{r echo = FALSE}
+#CHUNK 2
+data.all[data.all$year == 2007, c("country","continent")][1:10,]
+```
+
+Run CHUNK 3 to see the levels of one of the variables.
+
+```{r}
+#CHUNK 3
+levels(data.all$continent)
+```
+
+Run CHUNK 4 to see examples of numeric variables.
+
+```{r echo = FALSE}
+#CHUNK 4
+data.all[1:10,c("year","pop", "lifeExp", "gdpPercap")]
+```
+
+CHUNK 5 shows the *dummyVars* function from the caret package. *dummVars* uses a formula (e.g. "~ continent") to identify columns that should be dummy coded or binarized and creates a mapping that can be used to transform any data frame.
+
+```{r echo=FALSE}
+#CHUNK 5
+library(caret)
+binarizer <- dummyVars(formula = '~ continent', data.all, sep = '_')
+```
+
+CHUNK 6 now uses the mapping named "binarizer" to binarize the variable "continent." Run it now to see what it does.
+
+```{r echo = FALSE}
+#CHUNK 6
+continent.binarized <- predict(binarizer, data.all)
+
+data.binarized <- cbind(data.all, continent.binarized)
+data.binarized[data.binarized$year == 2007, 
+               c("country",
+                 "continent",
+                 "continent_Africa", 
+                 "continent_Americas", 
+                 "continent_Asia",
+                 "continent_Europe",
+                 "continent_Oceania")][1:10,]
+```
+
+CHUNK 7 uses a logic statement to change the numeric value of 1 to TRUE (and 0 to FALSE).
+
+```{r echo=FALSE}
+#CHUNK 7
+data.binarized[c("continent_Africa", 
+                 "continent_Americas", 
+                 "continent_Asia",
+                 "continent_Europe",
+                 "continent_Oceania")] <- (data.binarized[c("continent_Africa", 
+                                                            "continent_Americas", 
+                                                            "continent_Asia",
+                                                            "continent_Europe",
+                                                            "continent_Oceania")] == 1)
+
+data.binarized[data.binarized$year == 2007, 
+               c("country",
+                 "continent",
+                 "continent_Africa", 
+                 "continent_Americas", 
+                 "continent_Asia",
+                 "continent_Europe",
+                 "continent_Oceania")][1:10,]
+```
+
+run CHUNK 8 to load the 911 data and assign more meaningful names to the variables.
+
+```{r echo = FALSE}
+#CHUNK 8
+data.911 <- read.csv("911.csv",stringsAsFactors = TRUE)
+colnames(data.911) <- c("Latitude", "Longitude", "Description", "Zip Code", "Title", "Time Stamp", "Zone", "Address", "E")
+data.911[1:10,-c(9)]
+```
+
+CHUNK 9 evaluates the dimensionality of two variables.
+
+```{r}
+#CHUNK 9
+length(levels(data.911$Zone))
+length(levels(data.911$Title))
+```
+
+CHUNK 10 makes a bar chart of the exposures for the top levels of two of the factors.
+
+```{r}
+#CHUNK 10
+#You will learn more about ggplot in a later section
+library(ggplot2)
+ggplot(data = data.911, aes(Zone)) +
+  geom_bar()
+
+summary(data.911$Zone)[1:10] # Show the top ten levels for the Zone factor
+
+ggplot(data = data.911, aes(Title)) +
+  geom_bar()
+
+summary(data.911$Title)[1:10] # Show the top ten levels for the Title factor
+```
+
+
+Run CHUNKS 11 and 12 to see the tables that go with the Knowledge Checks. Rank the columns in order of granularity.
+
+
+```{r echo=FALSE}
+#CHUNK 11
+data.911[1:20,c("Zone", "Address", "Zip Code")]
+```
+
+```{r echo = FALSE}
+#CHUNK 12
+death <- read.csv("DeathRecords.csv",stringsAsFactors = TRUE)
+icd10code <- read.csv("Icd10Code.csv",stringsAsFactors = True)
+
+# Load libraries
+library(dplyr)
+
+# Join data by ICD10 code
+names(icd10code) <- c("Icd10Code", "Icd10Code_Description")
+death <- left_join(death, icd10code, by="Icd10Code")
+death$Icd10Code <- factor(death$Icd10Code)
+rm(icd10code)
+data.death.agebands <- data.frame(Age = death[1:20,c("Age")])
+data.death.agebands$Age1 <- ifelse(data.death.agebands$Age > 80, "80+",
+                                   ifelse(data.death.agebands$Age > 60, "60-80",
+                                          ifelse(data.death.agebands$Age < 30, "<30", data.death.agebands$Age)))
+data.death.agebands$Age2 <- ifelse(data.death.agebands$Age > 80, "80+",
+                                   ifelse(data.death.agebands$Age > 70, "70-80",
+                                          ifelse(data.death.agebands$Age > 60, "60-70",
+                                                 ifelse(data.death.agebands$Age > 50, "50-60",
+                                                        ifelse(data.death.agebands$Age > 20, "20-50", "<20")))))
+
+data.death.agebands
+```
+
+Run CHUNK 13 to go with Exercise 3.2.5
+
+```{r echo = FALSE}
+#CHUNK 13
+data.911.timebands <- data.frame(TimeStamp = data.911[sample(c(1:nrow(data.911)), 20),c("Time Stamp")])
+data.911.timebands$Date <- format(as.POSIXlt(data.911.timebands$TimeStamp), "%Y-%m-%d")
+data.911.timebands$DateTimeHour <- format(as.POSIXlt(data.911.timebands$TimeStamp), "%Y-%m-%d %H")
+data.911.timebands$Year <- format(as.POSIXlt(data.911.timebands$TimeStamp), "%Y")
+data.911.timebands$Month <- format(as.POSIXlt(data.911.timebands$TimeStamp), "%m")
+
+
+data.911.timebands
+```
+
+CHUNK 14 provides space for you to work on Exercise 3.2.7. The questions are repeated here.
+
+a) Classify what type of variable it is - there may be more than one type that is appropriate (character, factor, continuous, discrete, Boolean, date/time/location)
+b) Identify the range of the variable (the different levels for categorical)
+c) For each categorical variable, decide whether it is low, medium or high dimensionality.
+d) Are there any variables for which you could consider alternative granularity (assuming you have the data available)?
+e) Which variables have an order associated with them (or have a sensible one that can be defined)?
+f) Try checking the distributions of each of the variables. Do they look sensible to you?
+
+```{r eval=FALSE, echo=FALSE}
+#CHUNK 14
+data.all <- read.csv("../gapminderDataFiveYear.csv")
+
+
+
+```
+

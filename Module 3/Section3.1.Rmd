@@ -1,0 +1,67 @@
+---
+title: "Module 3.1 Understanding Data: Types of Data"
+output: html_notebook
+---
+Execute Chunk 1 to load and view some of the data. The read.csv command assumes that the file is in the current working directory. If not, the path will need to be specified. When the data is displayed, Depending on your screen resolution, there may be a black triangle near the upper right corner. Clicking it will scroll the display to the right to show additional columns
+
+```{r warning=FALSE}
+#Chunk 1
+data.all <- read.csv("gapminderDataFiveYear.csv")
+
+data.all[data.all$year == 2007,][1:10,]
+```
+
+Run Chunks 2 and 3 to see what an unstructured data set looks like. The data set is large and may take some time to load.
+
+```{r echo = FALSE, eval = FALSE, warning=FALSE}
+#CHUNK 2
+# The original post is here https://www.kaggle.com/robotgames/d/cdc/mortality/cause-of-death-word-cloud/comments
+# Load data
+death <- read.csv("../DeathRecords.csv")
+icd10code <- read.csv("../Icd10Code.csv")
+
+# Load libraries
+library(dplyr)
+library(tm)
+library(wordcloud)
+
+# Join data by ICD10 code
+names(icd10code) <- c("Icd10Code", "Icd10Code_Description")
+death <- left_join(death, icd10code, by="Icd10Code")
+death$Icd10Code <- factor(death$Icd10Code)
+rm(icd10code)
+
+```
+```{r echo = FALSE}
+#CHUNK 3
+# Draw a sample
+sample.size <- 10
+icd.sample <- sample(1:nrow(death), sample.size)
+icd <- death[icd.sample, c("Age","Sex", "Icd10Code_Description")]
+icd
+```
+
+
+Run Chunk 4 and then note that the first column gives us the list of single terms that appear, the second tells us which row that term appeared in (numbered 1-10 from the rows in the data above) and the third tells us how many times that term appeared in that row.
+
+
+```{r echo=FALSE, warning=FALSE}
+#CHUNK 4
+library(data.table)
+#We need to convert our unstructured data into a special object called a "Corpus" which is a collection of unstructured data items/documents
+docs <- Corpus(VectorSource(icd$Icd10Code_Description))
+
+#Then we create the "Document Term Matrix" which identifies the unique terms and counts the number of times each appears. The information is stored in a format that can be used by text mining programs
+dtm.Tf <- DocumentTermMatrix(docs, control = list(weighting = weightTf, wordLengths=c(2,Inf)))
+
+#The structure of the Document Term Matrix is complex. The remaining code transforms it into a useable structure.
+docs.vector = cbind(
+  dtm.Tf$dimnames$Docs[dtm.Tf$i]
+  ,dtm.Tf$dimnames$Terms[dtm.Tf$j]
+  ,dtm.Tf$v
+)
+DT.docs = data.table(terms=docs.vector[,2],docs=docs.vector[,1],Tf=docs.vector[,3],termMap=docs.vector[,2],key=c('terms'))
+
+DT.docs
+```
+

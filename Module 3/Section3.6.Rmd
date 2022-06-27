@@ -1,0 +1,154 @@
+---
+title: "Module 3.6 Data Design: Time Frame, Sampling and Granularity"
+output: html_notebook
+---
+
+Run CHUNK 1 to load the gapminder dataset used previously. It should be in your working directory.
+
+```{r}
+#CHUNK 1
+# Data
+#data.gmd <- read.csv("gapminderDataFiveYear.csv")
+data.gmd <- read.csv("gapminderDataFiveYear.csv")
+```
+
+Each of CHUNKS 2-6 generates a sample from this dataset. Try and identify from the code what type of sample is generated in each case.
+
+```{r}
+#CHUNK 2
+library(caret)
+data.split <- split(data.gmd, data.gmd$continent)
+samples <- lapply(data.split, function(x) x[sample(1:nrow(x), size = 5, replace = FALSE),])
+data.sample1 <- do.call(rbind,samples)
+data.sample1
+```
+
+```{r}
+#CHUNK 3
+data.sample2 <- data.gmd[sample(1:nrow(data.gmd), size = 20, replace = FALSE),]
+data.sample2
+```
+
+```{r}
+#CHUNK 4
+data.sample3 <- data.gmd[data.gmd$continent == "Africa",]
+data.sample3
+```
+
+```{r}
+#CHUNK 5
+data.sub1 <- data.gmd[data.gmd$continent != "Oceania",]
+data.sub2 <- data.gmd[data.gmd$continent == "Oceania",]
+
+data.sample4 <- rbind(data.sub1[sample(1:nrow(data.sub1), size = 1000, replace = FALSE),],
+                      data.sub2[sample(1:nrow(data.sub2), size = 1000, replace = TRUE),])
+data.sample4
+```
+
+```{r}
+#CHUNK 6
+library(caret)
+samples <- createDataPartition(data.gmd$continent, p = 0.1)
+
+data.sample5 <- data.gmd[ samples$Resample1, ]
+data.sample5
+```
+
+run CHUNK 7 to combine the two datasets.
+
+```{r echo = FALSE}
+#CHUNK 7
+data.hospital <- read.csv("Patient_survey_full.csv")
+data.stateMapping <- read.csv("state_table.csv")
+data.hospital <- data.hospital[data.hospital$HCAHPS.Question == "Summary star rating" &
+                                 data.hospital$Patient.Survey.Star.Rating != "Not Available",]
+data.hospital$Patient.Survey.Star.Rating <- as.numeric(data.hospital$Patient.Survey.Star.Rating)
+data.hospital <- merge(x = data.hospital, y = data.stateMapping, by.x = "State", by.y = "abbreviation", all.x = TRUE, all.y = FALSE)
+```
+
+Run CHUNK 8 to generate the graph by Zip Code.
+
+```{r echo = FALSE}
+#CHUNK 8
+library(gridExtra)
+library(dplyr)
+df <- data.hospital %>% group_by(ZIP.Code) %>% summarize(Patient.Survey.Star.Rating = mean(Patient.Survey.Star.Rating))
+# The above code calculates the average rating for each different value of zip code.
+
+g1 <- ggplot(data = df, aes(x = ZIP.Code, y = Patient.Survey.Star.Rating)) +
+  geom_point() +
+  theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank()) +
+  ggtitle("Graph 1 - Rating")
+
+g2 <- ggplot(data = data.hospital, aes(x = ZIP.Code)) +
+  geom_bar(stat = "count", color = "blue", alpha = 0.5) +
+  theme(axis.title.x=element_blank(),
+          axis.text.x=element_blank(),
+          axis.ticks.x=element_blank()) +
+  ggtitle("Graph 1 - Number of records")
+
+grid.arrange(g1,g2,ncol=2)
+
+
+
+```
+
+Run CHUNK 9 to bring in the median income data for each zip code.
+
+```{r echo = FALSE}
+#CHUNK 9
+data.income <- read.csv("MedianZIP-3.csv")
+data.hospital <- merge(x = data.hospital, y = data.income, by.x = "ZIP.Code", by.y = "Zip", all.x = TRUE, all.y = FALSE)
+data.hospital <- data.hospital[!(is.na(data.hospital$Median)),]
+```
+
+Run CHUNKS 10-13 to see graphs based on four levels of granularity.
+
+```{r echo = FALSE}
+#CHUNK 10
+# Zip Code
+
+df <- data.hospital %>% group_by(Median) %>% summarize(AverageRating = mean(Patient.Survey.Star.Rating))
+ggplot(data = df[order(df$Median),], aes(x = Median, y = AverageRating)) + geom_line() +
+  ggtitle("Zip Code")
+
+```
+
+```{r echo = FALSE}
+#CHUNK 11
+#County
+
+df <- data.hospital %>% group_by(County.Name) %>% summarize(Median = mean(Median), AverageRating = mean(Patient.Survey.Star.Rating))
+df <- df[!is.na(df$County.Name), ]
+ggplot(data = df[order(df$Median),], aes(x = Median, y = AverageRating)) + geom_line() +
+  ggtitle("County")
+
+```
+
+```{r echo = FALSE}
+#CHUNK 12
+# State
+
+df <- data.hospital %>% group_by(State) %>% summarize(Median = mean(Median), AverageRating = mean(Patient.Survey.Star.Rating))
+df <- df[!is.na(df$State), ]
+ggplot(data = df[order(df$Median),], aes(x = Median, y = AverageRating)) + geom_line() +
+  ggtitle("State")
+
+```
+
+```{r echo = FALSE}
+#CHUNK 13
+# Region
+
+df <- data.hospital %>% group_by(census_region) %>% summarize(Median = mean(Median), AverageRating = mean(Patient.Survey.Star.Rating))
+df <- df[!is.na(df$census_region), ]
+ggplot(data = df[order(df$Median),], aes(x = Median, y = AverageRating)) + geom_line() +
+  ggtitle("Region")
+
+temp <- aggregate(data.hospital[, c("Median", "Patient.Survey.Star.Rating")], by = list(region = data.hospital$census_region), FUN = mean)
+ggplot(data = temp[order(temp$Median),], aes(x = Median, y = Patient.Survey.Star.Rating)) +
+  geom_line(stat = "summary", fun.y = mean) +
+  ggtitle("Region")
+```

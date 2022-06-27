@@ -1,0 +1,22 @@
+---
+title: "Module 3.5: Introduction to course datasets"
+output: html_notebook
+---
+Run CHUNK 1 to load the mortality data. The code below assumes the file is in your working directory. If not, the full path will be needed. The "head" command prints the first six observations. This helps verify that file was successfully loaded.
+
+```{r}
+#CHUNK 1
+data.mortality <- read.csv("soa_mortality_data.csv")
+head(data.mortality)
+```
+
+To load the MEPS data you must have installed the "foreign" package (this should have been done as part of the Welcome Notes). This chunk will load the data and then save it as an .Rdata file for easy future access. Run CHUNK 2 now. This may take a few minutes. Becasue this chunk does not generate output here, the last command (42) is there so you will know when the run is finished. You should also see H171 in the Environment window and the file H171.Rdata in your working directory.
+
+```{r}
+#CHUNK 2
+library(foreign)
+H171<-read.xport("h171.ssp")
+save(H171,file="H171.Rdata")
+42
+```
+

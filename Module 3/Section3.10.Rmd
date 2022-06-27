@@ -1,0 +1,223 @@
+---
+title: "Module 3 Practice"
+output:
+  html_notebook: default
+  html_document: default
+---
+
+Run CHUNK 1 to load and save the MEPS data in a useful form. This can take some time, so skip this step if you did it in Section 3.5.
+```{r}
+#CHUNK 1
+library(foreign)
+meps.Data<-read.xport("../data/h171.ssp")
+save(meps.Data,file="H171.Rdata")
+```
+
+Load the saved MEPS data using CHUNK 2 (if you ran CHUNK 1 it is already loaded).
+
+```{r}
+#CHUNK 2
+load("../data/H171.Rdata")
+```
+
+Run CHUNK 3 to reduce the dataset to some interesting variables.
+```{r}
+library(caret)
+# Count the rows and columns
+nrow(meps.Data) # 34875 rows
+ncol(meps.Data) # 1838 variables
+
+# Hold out a sample of the data
+set.seed(255)
+holdout <- createDataPartition(meps.Data$TOTTCH14, p=0.3)
+meps.Holdout <- meps.Data[ holdout$Resample1, ]
+meps.Data <- meps.Data[ -holdout$Resample1, ]
+
+nrow(meps.Holdout) # 10465 rows
+nrow(meps.Data) # 24410 rows
+
+
+# Some interesting variables include:
+# PID - Person number
+# SEX
+# FAMINC14 - Family income
+# TTLP14X - Persons income
+# AGE14X - Age as of 31Dec2014
+# BMINDX53- Adult BMI
+# 
+# INDCAT31 - Industry group
+# OCCCAT31 - Occupation group
+# TOTTCH14 - Total charged across all categories
+# IPDIS14 - Total Hospital Discharges
+# IPNGTD14 - Total number of nights in the hospital
+# DVTOT14 - Total Dental Visits
+
+# Make smaller data set with simpler names
+meps.Simple <- data.frame(meps.Data$PID)
+meps.Simple$sex <- meps.Data$SEX
+meps.Simple$familyIncome <- meps.Data$FAMINC14
+meps.Simple$personIncome <- meps.Data$TTLP14X
+meps.Simple$age <- meps.Data$AGE14X
+meps.Simple$bmi.adult <- meps.Data$BMINDX53
+meps.Simple$bmi.child <- meps.Data$CHBMIX42
+meps.Simple$industry <- meps.Data$INDCAT31
+meps.Simple$occupation <- meps.Data$OCCCAT31
+meps.Simple$totalCharges <- meps.Data$TOTTCH14
+meps.Simple$totalHospDischarges <- meps.Data$IPDIS14
+meps.Simple$totalNightsCare <- meps.Data$IPNGTD14
+head(meps.Simple)
+
+```
+
+Use CHUNK 4 to evaluate the distribution of Age.
+
+```{r}
+#CHUNK 4
+# Evaluate the age variable
+typeof(meps.Simple$age) # double
+
+# Calculate the mean
+mean(meps.Simple$age) # Mean age is 34.8 years
+
+# Get a summary of age
+summary(meps.Simple$age) # Minimum value is '-1'
+
+# Create a logical vector to identify the -1 values for age
+is.neg1 <- meps.Simple$age == -1
+typeof(is.neg1) # logical
+
+meps.Simple[is.neg1,]$age # Filter the data to include only the '-1' values
+
+# Count the '-1' values
+length(meps.Simple[is.neg1,]$age) # 149
+length(meps.Simple[is.neg1,]$age)/nrow(meps.Simple) # 0.006 or 0.6%
+
+# How many distinct ages are in the data set
+length(unique(meps.Simple$age)) # 87 values including -1
+
+
+# Look at age distribution
+hist(meps.Simple$age)
+```
+
+Use CHUNK 5 to delete records for wich Age = -1.
+
+```{r}
+#CHUNK 5
+meps.Simple <- meps.Simple[!is.neg1,]
+nrow(meps.Simple)
+```
+
+Use CHUNK 6 to explore the other variables and make adjustments as appropriate. Note that the exploration of age is based on knowing it can only be non-negative whole numbers. Recall that if you put the cursor on a line of code and hit Control-r only that line will be executed.
+
+```{r}
+#CHUNK 6
+#Name the variable to investigate
+variable.name <- c("age")
+
+#Idenify which coumn it is in
+col.number <- match(variable.name,colnames(meps.Simple))
+
+# Evaluate the variable
+typeof(meps.Simple[,col.number])
+
+# Get a summary of the variable
+summary(meps.Simple[,col.number]) 
+
+# Create a logical vector to identify the -1 (or other interesting) values 
+is.neg1 <- meps.Simple[,col.number] < 0
+typeof(is.neg1) 
+length(meps.Simple[is.neg1,col.number]) #Filter and count the number equal to -1 
+
+# How many distinct values are there?
+length(unique(meps.Simple[,col.number])) 
+
+# Look at variable's distribution
+hist(meps.Simple[,col.number])
+
+#delete rows where the earlier condition is met
+meps.Simple <- meps.Simple[!is.neg1,]
+nrow(meps.Simple)
+```
+
+Use CHUNK 7 to create a single bmi value and change the sex values from 1 and 2 to M and F. 
+If your dataset has a different name from meps.Simple, change the name by doing newname <- oldname and then rm(oldname).
+
+```{r}
+#CHUNK 7
+library(dplyr)
+# Create a single bmi variable from the adult and child bmi variables
+meps.Simple[meps.Simple$bmi.adult <= 0, 'bmi.adult'] <- NA
+meps.Simple$bmi <- coalesce(meps.Simple$bmi.adult, meps.Simple$bmi.child)
+
+# Change the coding for sex, then summarize and make a simple plot
+
+meps.Simple$sex[meps.Simple$sex == 1] <- 'M'
+meps.Simple$sex[meps.Simple$sex == 2] <- 'F'
+meps.Simple$sex <- as.factor(meps.Simple$sex)
+
+summary(meps.Simple$sex)
+plot(meps.Simple$sex)
+
+# This is the last of the transformations we will do to this data during this practice so we will save the data file here
+save(meps.Simple,file="my_meps.Simple.Rdata")
+
+```
+
+Use CHUNK 8 to create a variety of plots
+
+```{r}
+#CHUNK 8
+
+# Load the pre-prepared data set provided through the link in the e-learning slides
+load("../data/meps.Simple.Rdata")
+
+library(ggplot2)
+
+# Plot ages for each sex
+ggplot(meps.Simple, aes(x=age, fill=sex)) + geom_histogram()
+ggplot(meps.Simple, aes(x=age, fill=sex)) + geom_density(alpha = 0.2)
+
+# Plot BMI
+ggplot(meps.Simple[meps.Simple$bmi > 0,], aes(x=bmi)) + geom_histogram(binwidth = 1)
+
+# Plot bmi with respect to age
+ggplot(meps.Simple, aes(x=age, y=bmi)) + geom_point()
+
+# This is an example of overplotting.  The points overlap and we cannot tell if there are 1 or 100 points at any particular area of the plot
+
+# We could plot make some points transparent
+ggplot(meps.Simple, aes(x=age, y=bmi)) + geom_point(alpha = 0.2)
+
+# We can also create a heatmap that quantifies the points in each grid of the plot similar to a histogram
+ggplot(meps.Simple, aes(x=age, y=bmi)) + geom_bin2d()
+```
+
+Run CHUNK 9 to see some vizualizations of the target variable.
+
+```{r}
+# Summarize total charges
+summary(meps.Simple$totalCharges) # Note the wide range 0 to 1,990,000
+
+# Plot total charges
+ggplot(meps.Simple, aes(x=totalCharges)) + geom_histogram() # not a very informative plot
+
+# Count the number of records with 0 totalCharges
+nrow(meps.Simple[meps.Simple$totalCharges == 0, ]) # 5342 records
+nrow(meps.Simple[meps.Simple$totalCharges == 0, ])/nrow(meps.Simple) # 0.2202 or 22.02%
+
+# Let us transform the data using log and square root
+summary(log(meps.Simple$totalCharges)) # The range of the log transformed value is more reasonable if we ignore those -Inf
+summary(sqrt(meps.Simple$totalCharges))
+
+ggplot(meps.Simple, aes(x=log(totalCharges))) + geom_histogram(bins = 200)
+
+ggplot(meps.Simple, aes(x=sqrt(totalCharges))) + geom_histogram(bins = 200) # So many zeros
+
+# 2 dimensional bins to deal with overplotting
+ggplot(meps.Simple, aes(x=bmi, y=log(totalCharges))) + geom_bin2d(bins = 100)
+ggplot(meps.Simple, aes(x=bmi, y=sqrt(totalCharges))) + geom_bin2d(bins = 100)
+
+# Plot total charges with respect to age
+ ggplot(meps.Simple[meps.Simple$bmi > 0,], aes(x=age, y=log(totalCharges))) + geom_point(alpha = 0.2)
+```

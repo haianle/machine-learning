@@ -1,0 +1,679 @@
+.lib---
+title: "Module 3.8 Data Visualization"
+output: html_notebook
+---
+Run CHUNK 1 to look at two datasets.
+
+```{r Load datasets and ggplot2}
+#CHUNK 1
+library(datasets)
+library(ggplot2)
+
+# Display "R data sets" in a new tab
+data()
+```
+
+Run CHUNK 2 to open and view a dataset from "datasets."
+
+```{r Open and view iris from datasets}
+#CHUNK 2
+iris <- datasets::iris
+head(iris)
+```
+
+Run CHUNK 3 to open and view a dataset from "ggplot2."
+
+```{r Open and view economics from ggplot2}
+#CHUNK 3
+economics <- ggplot2::faithfuld
+head(faithfuld)
+```
+
+You don't really need to load and assign and view these embedded datasets, as they can be used in functions directly. Run CHUNK 9 for an example:
+  
+```{r Plot AirPassengers}
+#CHUNK 4
+plot(AirPassengers)
+```
+ 
+Nonetheless, it is still good practice to do so, as you will be mostly working with data outside of these samples in real life.
+
+In CHUNK 5 you should set the working director where you want it to be.
+  
+```{r Exercise - working directory}
+#CHUNK 5
+# Get the working directory 
+  # Change it to the right location if needed to
+
+
+```  
+
+CHUNK 6 has you write code to learn some key facts about the diamonds dataset. You may have to search for help to get the right commands.
+
+```{r Exercise - load and inspect data}
+#CHUNK 6
+# Load diamonds data and assign it to 'diamonds'
+
+
+# How many rows and columns are in the data?
+
+
+# Display the variable names and few sample records
+
+
+# What do these variables mean?
+
+
+```
+
+CHUNK 7 has a model solution.
+
+```{r Answer - load the data}
+#CHUNK 7
+# Get the working directory 
+  # Change it to the right location if needed to
+getwd()
+#setwd("~/Desktop/SOA")
+
+# Load the diamonds data
+diamonds <- as.data.frame(diamonds)
+
+# How many rows and columns are in the data?
+dim(diamonds)
+
+# Display the variable names in this data
+head(diamonds)
+
+# Help!
+help("diamonds")
+```
+
+Be sure to note where the various output items appear.
+
+Run CHUNK 8 to make a scatterplot.
+
+```{r ggplot scatter plot}
+#CHUNK 8
+ggplot(data = diamonds, aes(x = carat, y = price)) +
+  geom_point()
+```
+
+Run CHUNK 9 to add color to the previous graph.
+
+```{r ggplot scatter plot - add color}
+#CHUNK 9
+ggplot(data = diamonds, aes(x = carat, y = price, color = cut)) +
+  geom_point()
+```
+  
+Run CHUNK 10 to map color to shape. Try writing your own code before looking at a solution in CHUNK 11.
+
+```{r Exercise - use shape to differentiate cut}
+#CHUNK 10
+
+
+```
+
+
+
+
+```{r Answer - use shape to differentiate cut}
+#CHUNK 11
+ggplot(data = diamonds, aes(x = carat, y = price, shape = cut)) +
+  geom_point()
+```
+
+Write the code in CHUNK 12 to differentiate cut by using size. Of color, shape, and size, which is most effective?
+
+```{r Exercise - use size to differentiate cut}
+#CHUNK 12
+
+```
+
+Run CHUNK 13 to see the difference between items specified within aes() and those outside.
+
+```{r ggplot scatter plot - change the dots to color red}
+#CHUNK 13
+ggplot(data = diamonds, aes(x = carat, y = price)) +
+  geom_point(color = 'red') # Note color is not within aes()
+```
+
+Run CHUNK 14 to see the addition of a line.
+
+```{r ggplot scatter plot - add a line}
+#CHUNK 14
+ggplot(data = diamonds, aes(x = carat, y = price)) +
+  geom_point() +
+  geom_smooth() 
+```
+
+CHUNK 15 provides an execise for you to try some other options.
+
+```{r Exercise - use geom_line instead of geom_smooth}
+#CHUNK 15
+# Use help() if you don't understand the differences
+
+```
+
+CHUNK 16 has a solution.
+
+```{r Answer - use geom_line instead of geom_smooth}
+#CHUNK 16
+ggplot(data = diamonds, aes(x = carat, y = price)) +
+  geom_point() +
+  geom_line() 
+# This simply connects the dots, instead of smoothing it. 
+# You can add stats functions within geom_line() to display plots similar to those in geom_smooth (),
+# and you will see situations where both approaches are useful.
+# Just remember to always keep your code clean, short and simple. 
+```
+  
+Run CHUNK 17 to change the transparency of the points.  
+  
+```{r ggplot scatter plot - alpha}
+#CHUNK 17
+ggplot(data = diamonds, aes(x = carat, y = price)) +
+  geom_point(alpha = 1/30)
+```
+
+Run CHUNK 18 to add jitter.
+  
+```{r ggplot scatter plot - jitter}
+#CHUNK 18
+ggplot(data = diamonds, aes(x = carat, y = price)) +
+  geom_point(alpha = 1/30, position = position_jitter(width = 0.2, height = 0))
+```
+
+Run CHUNK 19 to implement facet_wrap on cut.
+
+```{r ggplot scatter plot - facet_wrap}
+#CHUNK 19 
+ggplot(data = diamonds, aes(x = carat, y = price)) +
+  geom_point(alpha = 1/30) +
+  geom_smooth() +
+  facet_wrap(~cut)
+```
+
+Use facet_wrap on another variable and share your observations afterward. CHUNK 20 is set up for you to do that.
+
+```{r Answer - facet_wrap}
+#CHUNK 20
+ggplot(data = diamonds, aes(x = carat, y = price)) +
+  geom_point(alpha = 1/30) +
+  geom_smooth() +
+  facet_wrap()
+```
+
+Run CHUNKS 21-23 to see three examples of facet_grid.
+
+```{r ggplot scatter plot - facet_grid1}
+#CHUNK 21
+ggplot(data = diamonds, aes(x = carat, y = price)) +
+  geom_point(alpha = 1/30) +
+  facet_grid(.~cut)
+# You can see that the Y-axis is common for all cut comparisons, this is not necessarily true for facet_wrap. 
+# The dot in the parenthesis indicates no faceting on this axis. 
+```
+
+```{r ggplot scatter plot - facet_grid2}
+#CHUNK 22
+ggplot(data = diamonds, aes(x = carat, y = price)) +
+  geom_point(alpha = 1/30) +
+  facet_grid(color~.)
+# You can see the X-axis is common for all color comparisons, this is not necessarily true for facet_wrap.
+# This time, the dot indicates no faceting on x-axis.
+```
+
+```{r ggplot scatter plot - facet_grid3}
+#CHUNK 23
+ggplot(data = diamonds, aes(x = carat, y = price)) +
+  geom_point(alpha = 1/30) +
+  facet_grid(color~cut)
+# Faceting both x and y axes. 
+```
+
+Use CHUNK 24 to try and add features to the graph. A solution is in CHUNK 25.
+  
+```{r Exercise - add title, labels and legends}
+#CHUNK 24
+ggplot(data = diamonds, aes(x = carat, y = price, color = cut)) +
+  geom_point(alpha = 1/30) +
+  geom_smooth()
+
+```
+
+
+```{r Sample Answer - add title, labels and legends}
+#CHUNK 25
+ggplot(data = diamonds, aes(x = carat, y = price, color = cut)) +
+  geom_point(alpha = 1/30) +
+  geom_smooth() +
+  ggtitle("Diamonds are expensive!") + 
+  xlab("Weight in Carats") +           
+  ylab("Price in USD") +               
+  scale_y_continuous(label = function(x){return(paste("The diamond is $", x))})
+```
+    
+CHUNK 26 restricts the plot to diamonds with carats <= 2.5.
+
+```{r Answer - carats less than or equal to 2.5}
+#CHUNK 26
+ggplot(data = subset(diamonds, carat <= 2.5), aes(x = carat, y = price)) +
+  geom_point(alpha = 1/30)
+```
+
+Try adding xlim() to CHUNK 27 to produce the same result (including only those diamonds with carats <= 2.5).
+
+```{r Exercise - use xlim}
+#CHUNK 27
+ggplot(data = diamonds, aes(x = carat, y = price)) +
+  geom_point(alpha = 1/30)
+```
+  
+CHUNK 28 provides a speed test of two ways to limit the graph to diamonds with carats <= 0.5.
+
+```{r Sample Answer - 3.8.9}
+#CHUNK 28
+library(microbenchmark)
+set.seed(1000)
+microbenchmark(
+p1 = { ggplot(data = subset(diamonds, carat <= 0.5), aes(x = carat, y = price)) +
+         geom_point()},
+p2 = { ggplot(data = diamonds, aes(x = carat, y = price)) +
+         geom_point() + xlim(0, 0.5)},
+times = 1000
+)
+```
+
+Modify CHUNK 29 to cut out the highest 5% on both carat and price.
+
+```{r Exercise - limit the axes using quantile}
+#CHUNK 29
+ggplot(data = diamonds, aes(x = carat, y = price)) +
+  geom_point(alpha = 1/30)
+```
+
+CHUNK 30 has a solution.
+
+```{r Answer - limit the axes using quantile}
+#CHUNK 30
+ggplot(data = diamonds, aes(x = carat, y = price)) +
+  geom_point(alpha = 1/30) +
+  xlim (c(0, quantile(diamonds$carat, probs = 0.95))) +
+  ylim (c(0, quantile(diamonds$price, probs = 0.95)))
+```
+
+CHUNK 31 brings back an earlier version of the graph. Try to modify it to to plot y on a log scale.
+ 
+```{r Exercise - log(price)}
+#CHUNK 31
+ggplot(data = diamonds, aes(x = carat, y = price)) +
+  geom_point(alpha = 1/30) +
+  xlim(0, 2.5)
+```
+
+Run CHUNK 32 to see two ways to implement a log transform.
+  
+```{r Answer - log(price)}
+#CHUNK 32
+library(gridExtra)
+p1 <- ggplot(data = diamonds, aes(x = carat, y = log(price))) +
+        geom_point(alpha = 1/30) +
+        xlim(0, 2.5)
+p2 <- ggplot(data = diamonds, aes(x = carat, y = price)) +
+        geom_point(alpha = 1/30) +
+        xlim(0, 2.5) +
+        scale_y_log10()
+grid.arrange(p1, p2, ncol = 2)
+```
+
+Run CHUNK 33 to see an example of adding means to the scatterplot.
+
+```{r ggplot scatter plot - add summary (mean)}
+#CHUNK 33
+library(dplyr)
+df <- diamonds %>% group_by(carat) %>% summarize(meanprice = mean(price))
+# The above code calculates the average price for each different value of carat.
+
+ggplot(data = diamonds, aes(x = carat)) +
+  geom_point(aes(y = price), alpha = 1/30) +
+  xlim(0, 2.5) +  geom_line(data = df, aes(y = meanprice), color = "red")
+# Note the use of two different data frames.
+```
+
+Modify CHUNK 34 to add the median and 25th and 75th percentiles.
+
+```{r Exercise - add median, 25% and 75%}
+#CHUNK 34
+df <- diamonds %>% group_by(carat) %>% summarize(meanprice = mean(price))
+
+ggplot(data = diamonds, aes(x = carat)) +
+  geom_point(aes(y = price), alpha = 1/30) +
+  xlim(0, 2.5) +  geom_line(data = df, aes(y = meanprice), color = "red")
+```
+  
+CHUNK 35 provides a solution.
+
+```{r Answer - add median, 25% and 75%}
+#CHUNK 35
+# Note we plot it this way to help you to see:
+  # - the differences between mean and median
+  # - the range of 25% and 75% increase for larger diamonds
+
+df <- diamonds %>% group_by(carat) %>% summarize(meanprice = mean(price),
+                                                 medianprice = median(price),
+                                                 q1price = quantile(price, 0.25),
+                                                 q3price = quantile(price, 0.75))
+
+ggplot(data = diamonds, aes(x = carat)) +
+  geom_point(aes(y=price), alpha = 1/30) +
+  xlim(0, 2.5) +  geom_line(data = df, aes(y=meanprice), color = "red") +
+  geom_line(data = df, aes(y = medianprice), color = "blue") +
+  geom_line(data = df, aes(y = q1price), color = "orange") +
+  geom_line(data = df, aes(y = q3price), color = "orange")
+
+
+
+```
+ 
+Run CHUNK 36 to make a bar chart of cut.
+
+```{r Answer - number of diamonds by cut}
+#CHUNK 36
+ggplot(data = diamonds, aes(cut)) +
+  geom_bar()
+```
+
+Edit CHUNK 37 make a bar chart to show the average diamond price for each cut.
+
+```{r Exercise - average price by cut}
+#CHUNK 37
+ggplot(data = , aes()) +
+  geom_bar()
+```
+
+In CHUNK 38 you can get the averages to use as a check.
+
+```{r gglot bar chart - Average price by cut}
+#CHUNK 38
+# Self-check: does the value match what is displayed in the bar chart?
+by(diamonds$price, diamonds$cut, mean)
+```
+  
+And CHUNK 39 provides the code to make the desired chart.
+
+```{r Answer - average price by cut}
+#CHUNK 39
+# Why does "Ideal" (in theory, the best cut) have the lowest average price?
+# This gets us into uni-variate vs multi-variate analysis, which we will cover in later modules. 
+# Try a few other variables as well, e.g. color, clarity.
+ggplot(data = diamonds, aes(x = cut, y = price)) +
+  geom_bar(stat = "summary")
+```
+
+Use CHUNK 40 to put the two graphs already made side-by-side.
+  
+```{r Exercise - two bar charts side by side}
+#CHUNK 40
+p1 <-
+p2 <-
+grid.arrange()
+
+```
+
+Run CHUNK 41 to make a grouped bar chart. Note the observations in the comments.
+
+```{r Answer - average price by color grouped by cut}
+#CHUNK 41
+# Did you notice that the average price for each color is increasing as expected for ideal and premium cut, but not for the other cuts? 
+# How about that the "Ideal" cut has the lowest average price in almost all color categories? 
+ggplot(data = diamonds, aes(x = color, y = price, fill = cut)) +
+  geom_bar(stat = "summary", position = position_dodge())
+
+# Maybe it is because "Ideal" diamonds are on average smaller...plot another bar chart to confirm.
+# Confirmed. But does that explain all the differences?
+# This brings us to exploratory data analysis (EDA), which will be covered in Module 4. 
+ggplot(data = diamonds, aes(x = cut, y = carat)) +
+  geom_bar(stat = "summary")
+```
+  
+For the same grouped bar chart, average price by color, grouped by cut and stack the bars instead of having them side by side. Also, stack them to 100% of average price. Try it out in CHUNK 43 and then look at CHUNK 44 for a solution and some comments.
+
+```{r Exercise - stack 100% average price by color grouped by cut}
+#CHUNK 42
+
+```
+
+  
+```{r Answer - - stack 100% average price by color group by cut}
+#CHUNK 43
+# You probably noticed that this is not a good visualization to show "average price per color is increasing as expected for ideal and premium cut, but not for others".
+# In this case, a facet_wrap works better. 
+# You can alway try various visualizations either to observe the variables from different angles, or demonstrate an idea more clearly. 
+ggplot(data = diamonds, aes(x = color, y = price, fill = cut)) +
+  geom_bar(stat = "summary", position = "fill")
+
+ggplot(data = diamonds, aes(x = color, y = price)) +
+  geom_bar(stat = "summary") +
+  facet_wrap(~cut)
+```
+
+Plot a histogram of price in CHUNK 44.
+
+```{r Answer - diamond price histogram}
+#CHUNK 44
+#Note the use of ..density.., it ensures that a proper histogram is made.
+ggplot(data = diamonds, aes(price, ..density..)) +
+  geom_histogram()
+```
+
+Enhance CHUNK 45 to have plot 2 use 100 bins, plot 3 have bin boundaries running from 0 to 14,500 by 500 and then 15,000 to 20,000 by 1000, and plot 4 modify plot 1 to only show prices from 0 to 2000. 
+
+```{r Sample Answer - histogram with different binning}
+#CHUNK 45
+# None of the sample answers are particularly good...
+# We can see that, in the first graph, there's a bar missing
+# p4 was added to check what was going on - it seems like there's no diamond priced at $1500
+p0 <- ggplot(data = diamonds, aes(price, ..density..))
+p1 <- p0 + geom_histogram(binwidth = 100)
+p2 <- p0 + geom_histogram()
+p3 <- p0 + geom_histogram()
+p4 <- p1 + xlim(0, 2000)
+grid.arrange(p1, p2, p3, p4, ncol = 2)
+```
+
+Run CHUNK 46 to apply a log transformation to price.
+
+```{r Answer - log-price histogram}
+#CHUNK 46
+# It doesn't look so normal does it? 
+# It could be that the diamond market is really split by two separate consumer groups, logical vs crazy ones!!!
+# This type of observation has implications for how we might approach predicting the diamond price and so is a good example of how early visualisations can help mold subsequent analytics approaches.
+# This is discussed in more detail in later modules. 
+ggplot(data = diamonds, aes(price, ..density..)) +
+  geom_histogram(bins = 200) +
+  scale_x_log10()
+```
+  
+ Create a 2D binned histogram in CHUNK 47.
+
+```{r Sample Answer - 2D Histogram}
+#CHUNK 47
+# You can see that this plot is convenient for dealing with overlapping points
+ggplot(data = diamonds, aes(x=carat, y=price)) + geom_bin2d()
+
+```
+
+Add a frequency plot to the original and transformed price histograms. Display them side by side. Try it in CHUNK 48 and see a solution in CHUNK 49.
+
+```{r Exercise - frequency plot}
+#CHUNK 48
+
+
+```
+
+```{r Answer - frequency plot}
+#CHUNK 49
+p0 <- ggplot(data = diamonds, aes(price, ..density..)) +
+        geom_histogram(bins = 100)
+p1 <- p0 + geom_freqpoly(bins = 100, color = "red", size = 2)
+p2 <- p1 + scale_x_log10()
+grid.arrange(p1, p2, ncol = 2)
+```
+
+Use the next two chuncks to change these to density plots.
+
+```{r Exercise - density plot}
+#CHUNK 50
+
+
+```
+
+```{r Answer - density plot}
+#CHUNK 51
+# The default kernel is Gaussian. Feel free to explore other kernels
+# Why do you think there is a line on across the bottom of the plot?
+p0 <- ggplot(data = diamonds, aes(price, ..density..)) +
+        geom_histogram(aes(y = ..density..), bins = 100)
+p1 <- p0 + geom_density(color = "red", size = 2)
+p2 <- p1 + scale_x_log10()
+grid.arrange(p1, p2, ncol = 2)
+```
+  
+Run CHUNK 52 to make a box plot.
+
+```{r box plot}
+#CHUNK 52
+set.seed(1000)
+y=rnorm(1000)
+norm.sim <- as.data.frame(y)
+ggplot(data=norm.sim,aes(x="",y=y)) +
+  geom_boxplot()
+```
+
+Use the blank area in CHUNK 53 to make one or two boxplots that display the variable price by color of the diamond.
+
+```{r Exercise - box plot}
+#CHUNK 53
+
+```
+
+Here is a solution.
+
+```{r Answer - box plot}
+#CHUNK 54
+# As there are many "outliers" in the price plot, the transformed version looks better. 
+# This confirms some of our previous observations
+# - Median price increases as color upgrades
+# - Distribution of color J is tighter than others
+# - The better colors (H, I, J) exhibit more left skew after transformation
+p1 <- ggplot(data = diamonds, aes(x = color, y = price)) +
+        geom_boxplot()
+p2 <- p1 + scale_y_log10()
+grid.arrange(p1, p2, ncol = 2)
+```
+
+Run CHUNK 55 to see an exmaple of ggpairs.
+
+```{r ggplot box plot - ggpairs}
+#CHUNK 55
+library(GGally)
+ggpairs(diamonds, c(1:2, 7))
+```
+
+CHUNK 56 is a rerun from Module 1.1. The commands may be helpful as you try to create a similar plot for the diamonds data set. 
+  
+```{r Example from module 1.1}
+#CHUNK 56
+data.all <- read.csv("../data/BreastCancerWisconsinDataSet.csv")
+ # set the target 
+data.all$target [data.all$diagnosis == "M"] = 1
+data.all$target [data.all$diagnosis == "B"] = 0
+
+ # all variables available for training
+vars <- names(data.all)[c(-1, -2, -33)]
+data.all <- data.all[c(-1, -2, -33)]
+
+# Calculate correlation matrix
+library(reshape2)
+cormat <- cor(data.all)
+ # Melt the correlation matrix
+melted.cormat <- melt(cormat)
+
+ggplot(data = melted.cormat, aes(x=Var1, y=Var2, fill=value)) + 
+  geom_tile() +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, 
+        hjust = 1))
+```
+  
+Now in CHUNK 57 try and create a similar plot for the diamond data.   
+
+```{r Exercise - heat map}
+#CHUNK 57
+
+ 
+```
+
+CHUNK 58 has one approach to creating numerical variables.
+
+```{r Sample answer - change categorical variables to indicators}
+#CHUNK 58
+
+library(caret)
+# dummyVars is not compatible with factors
+diamonds$color <- as.character(diamonds$color)
+diamonds$cut <- as.character(diamonds$cut)
+diamonds$clarity <- as.character(diamonds$clarity)
+# Binarize the variables
+binarizer <- caret::dummyVars('~ cut + clarity + color', data = diamonds, fullRank= F)
+binarized.vars <- data.frame(predict(binarizer, newdata = diamonds))
+# Combine the binarized variables and the original data set
+drop.vars <- c('cut', 'clarity', 'color')
+diamonds_spread <- cbind(diamonds[ , !(names(diamonds)) %in% drop.vars], binarized.vars)
+
+```
+
+CHUNK 59 has an alternative approach.
+
+```{r Sample answer - change categorical variables to numeric}
+#CHUNK 59
+diamonds_mod <- diamonds[c(-2, -3, -4)]
+diamonds_mod$cut <- as.numeric(diamonds$cut)
+diamonds_mod$color <- as.numeric(diamonds$color)
+diamonds_mod$clarity <- as.numeric(diamonds$clarity)
+```
+
+CHUNKS 60 and 61 make the heat maps.
+
+```{r Sample answer - heat map with diamonds_spread}
+#CHUNK 60
+# Calculate correlation matrix
+cormat <- cor(diamonds_spread)
+ # Melt the correlation matrix
+melted.cormat.spread <- melt(cormat)
+ggplot(data = melted.cormat.spread, aes(x=Var1, y=Var2, fill=value)) + 
+    geom_tile() +
+    theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1))
+```
+
+```{r Sample answer - heat map with diamonds_mod}
+ #CHUNK 61
+# Calculate correlation matrix
+cormat <- cor(diamonds_mod)
+ # Melt the correlation matrix
+melted.cormat.mod <- melt(cormat)
+ggplot(data = melted.cormat.mod, aes(x=Var1, y=Var2, fill=value)) + 
+    geom_tile() +
+    theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1))
+```
+
+CHUNK 62 makes the heat map with ggplot.
+  
+```{r ggplot heat map}
+#CHUNK 62
+ggplot(melted.cormat.spread, aes(x = Var1, y = Var2, fill = value)) + 
+  geom_tile()
+
+ggplot(melted.cormat.mod, aes(x = Var1, y = Var2, fill = value)) + 
+  geom_tile()
+```

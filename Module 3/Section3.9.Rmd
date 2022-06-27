@@ -1,0 +1,72 @@
+---
+title: "Module 3.9 Data Transformation"
+output: html_notebook
+---
+
+
+Run CHUNK 1 to make a histogram of the price variable from the diamonds data using both untransformed,log transformed, and square root transformed data.
+
+```{r Example - Log transformation}
+#CHUNK 1
+library(ggplot2)
+library(gridExtra)
+p1 <- ggplot(data = diamonds, aes(price, ..density..)) +
+        geom_histogram(bins = 100)
+p2 <- p1 + scale_x_log10() + ggtitle("Log10 transformation")
+p3 <- p1 + scale_x_sqrt() + ggtitle("Square root transformation")
+grid.arrange(p1, p2, p3, ncol = 2)
+```
+  
+Run CHUNK 2 to see the effect of standardization on simulated data.
+
+```{r Example - Standardization}
+#CHUNK 2
+#The original data is 10,000 simlulations of a uniform(0,100) variable
+original <- runif(10000, min = 0, max = 100)
+#Use the scale function to standardize and make data frames.
+standardized <- as.data.frame(scale(original))
+original <- as.data.frame(original)
+#Name the variables
+names(original) <- "original"
+names(standardized) <- "standardized"
+#Graph the data
+print(paste("Original mean: ", mean(original$original), "; sd: ", sd(original$original)))
+print(paste("Standardized mean: ", mean(standardized$standardized), "; sd: ", sd(standardized$standardized)))
+
+p1 <- ggplot(data = original, aes(x = original)) + geom_density()
+p2 <- ggplot(data = standardized, aes(x = standardized)) + geom_density()
+grid.arrange(p1, p2, ncol = 2)
+```
+
+Run CHUNK 3 to binarize variables in the diamonds data. 
+
+```{r Example - Binarization}
+#CHUNK 3
+library(caret)
+# dummyVars is not compatible with factors
+diamonds$color <- as.character(diamonds$color)
+diamonds$cut <- as.character(diamonds$cut)
+diamonds$clarity <- as.character(diamonds$clarity)
+# Binarize variables
+binarizer <- caret::dummyVars('~ cut + clarity + color', data = diamonds, fullRank= F)
+diamonds_spread <- data.frame(predict(binarizer, newdata = diamonds))
+
+head(diamonds_spread)
+```
+
+Run CHUNK 4 to encode and binarize the diamond data.
+
+```{r Example - Encoding + Binarization}
+#CHUNK 4
+diamonds_mod <- diamonds
+# Use the level name instead of the numeric value to encode
+diamonds_mod$encode <- paste(diamonds$cut, diamonds$color, diamonds$clarity)
+# Binarize variable
+binarize.encode <- dummyVars('~ encode', diamonds_mod)
+diamonds_new <- predict(binarize.encode, diamonds_mod)
+# It looks like there are 276 profiles of diamond
+head(diamonds_new)
+```
+  
+      
+      
