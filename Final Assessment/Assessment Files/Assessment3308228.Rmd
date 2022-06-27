@@ -1,0 +1,232 @@
+---
+title: "PA Assessment 3308228"
+output: html_notebook
+---
+```{r}
+# Load libraries
+library(caret)
+library(randomForest)
+library(data.table)
+library(ggplot2)
+library(tidyverse)
+library(dplyr)
+library(infotheo)
+library(data.table)
+library(glmnet)
+library(pROC)
+```
+
+
+```{r}
+#Load data
+data.all <- read.csv("lapse_modeling.csv",stringsAsFactors = TRUE)
+#Change response to target 
+data.all$target <- data.all$response
+data.all$response <- NULL
+
+summary(data.all)
+str(data.all)
+
+```
+```{r}
+#remove sg_premtype and sg_status
+data.all <- data.all[,setdiff(colnames(data.all), c("sg_prem_type", "sg_status"))]
+#remove 8 rows with face_amount_at_issue = NA
+data.all <- data.all[!is.na(data.all$face_amount_at_issue),]
+
+```
+
+```{r}
+
+#Study year looks consistent; consider to drop
+data.all %>%
+  group_by(study_year) %>%
+  summarise(lapserate = sum(target)/sum(weight), n = n()) %>%
+  ungroup() 
+#Duration
+ggplot(data.all,aes(x=duration)) + geom_histogram()
+#Sex looks reasonable and consistent
+ggplot(data.all,aes(x=sex)) + geom_bar()  
+data.all %>%
+  group_by(sex) %>%
+  summarise(lapserate = sum(target)/sum(weight), n = n()) %>%
+  ungroup()
+
+#Smoker: SM only accounts for 6% of total; Not sure what value US is; consider to drop
+ggplot(data.all,aes(x=smoker)) + geom_bar()  
+#uw_key looks fine
+ggplot(data.all,aes(x=uw_key)) + geom_bar() 
+#uw_requirements is dominated by one value; does not much value; consider to drop
+data.all %>%
+  group_by(uw_requirements) %>%
+  summarise(lapserate = sum(target)/sum(weight), n = n()) %>%
+  ungroup() 
+#substandard_indicator is dominated by one value; does not much value
+data.all %>%
+  group_by(substandard_indicator) %>%
+  summarise(lapserate = sum(target)/sum(weight), n = n()) %>%
+  ungroup()
+#Group multiple values of product
+data.all %>%
+  group_by(product) %>%
+  summarise(lapserate = sum(target)/sum(weight), n = n()) %>%
+  ungroup()
+
+data.all$product <- ifelse(!(data.all$product %in% c("Term","WL")),"OTHER",
+                                ifelse(data.all$product == "Term","Term","WL"))
+data.all$product <- as.factor(data.all$product )
+data.all %>%
+  group_by(product) %>%
+  summarise(lapserate = sum(target)/sum(weight), n = n()) %>%
+  ungroup()
+
+#face_amount_at_issue
+ggplot(data.all,aes(x=face_amount_at_issue)) + geom_histogram()
+ggplot(data.all,aes(x=log(face_amount_at_issue))) + geom_histogram()
+
+```
+```{r}
+#Drop substandard_indicator
+data.all <-data.all[, setdiff(colnames(data.all), c("substandard_indicator", "weight"))]
+#Transfrom face_amount_at_issue
+data.all$log_face_amount <-log(data.all$face_amount_at_issue)
+data.all$face_amount_at_issue<-NULL
+data.all <- data.all[,c(1:8,10,9)]
+```
+
+
+Use mutual information to select variables.
+```{r}
+vars.subset <- colnames(data.all)
+
+# Create a discrete version of our data as required by the mutual information function
+data.disc <- discretize(data.all[,vars.subset], "equalfreq")
+
+# Calculate the mutual information between all of our variables
+v.mi <- mutinformation(data.disc, method = 'emp')
+
+# Visualize the result
+melted.v.mi <- melt(v.mi)
+ggplot(data = melted.v.mi, aes(x = Var1, y = Var2, fill = value)) +
+  geom_tile() +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1))
+
+# Slice the mutual information matrix to only include the comparisons to Target.
+v.mi.slice <- v.mi[9,1:(nrow(v.mi)-1)]
+
+# Sort the mutual information values and take the top 10
+sorted.vars <- sort(v.mi.slice, decreasing = T)
+mi.vars <- names(sorted.vars)
+data.frame(sorted.vars)
+```
+
+
+
+```{r}
+#Create training and testing data sets
+set.seed(900)
+training.indices <- createDataPartition(data.all$target, p = 0.7, list = FALSE)
+data.training <- data.all[training.indices, ] 
+data.testing <- data.all[-training.indices, ]
+
+#Target is evenly distributed
+ggplot(data.training,aes(x=target)) + geom_bar() + ggtitle("Training")
+ggplot(data.testing,aes(x=target)) + geom_bar() + ggtitle("Testing")
+```
+### Build a GLM
+```{r}
+
+# fit a glm
+f <- as.formula(paste('target ~ ',paste(vars.subset[-10], collapse = '+')))
+glm.model <- glm(formula = f,
+                 data = data.training,
+                 family = binomial(link = 'logit'))
+
+# print model summary including coefficients
+summary(glm.model)
+
+# add glm predictions to data frame
+data.training$glm_pred <- predict(glm.model, data.training, type = 'response')
+train.pred  <- ifelse(data.training$glm_pred > 0.5, 1, 0)
+error = mean(train.pred != data.training$target)
+print(paste('GLM Training Model Accuracy', 1-error))
+auc(as.numeric(data.training$target), as.numeric(train.pred))
+
+
+data.testing$glm_pred <- predict(glm.model, data.testing, type = 'response')
+test.pred  <- ifelse(data.testing$glm_pred > 0.5, 1, 0)
+error = mean(test.pred != data.testing$target)
+print(paste('GLM Testing Model Accuracy', 1-error))
+auc(as.numeric(data.testing$target), as.numeric(test.pred))
+```
+#Try for interaction
+```{r}
+# fit a glm
+#+ duration * attained_age
+g <- as.formula("target ~ duration + attained_age + sex + smoker + 
+                  uw_key + uw_requirements + product + log_face_amount + duration * attained_age")
+glm.model1 <- glm(formula = g,
+                 data = data.training,
+                 family = binomial(link = 'logit'))
+
+# print model summary including coefficients
+summary(glm.model1)
+
+# add glm predictions to data frame
+data.training$glm_pred <- predict(glm.model1, data.training, type = 'response')
+train.pred  <- ifelse(data.training$glm_pred > 0.5, 1, 0)
+error = mean(train.pred != data.training$target)
+print(paste('GLM Training Model Accuracy', 1-error))
+
+
+data.testing$glm_pred <- predict(glm.model1, data.testing, type = 'response')
+test.pred  <- ifelse(data.testing$glm_pred > 0.5, 1, 0)
+error = mean(test.pred != data.testing$target)
+print(paste('GLM Testing Model Accuracy', 1-error))
+```
+
+
+
+```
+```{r}
+
+### Build a Random Forest Model
+```{r}
+# use caret to build an rf
+
+# Set up the trainControl 
+tr.ctrl <-  trainControl(method = "cv",
+                         number = 5)
+
+# Note: caret will automatically perform a parameter search
+rf.model <- train(form = f,
+                  data = data.training,
+                  method = 'rf',
+                  trControl = tr.ctrl,
+                  maxdepth = 4,
+                 # maxnodes = 10,
+                  ntree = 100,
+                  predict = T)
+
+# Look at the output of the training process
+plot(rf.model)
+
+# Add predictions to  data
+data.training$rf_pred <- predict.train(rf.model, data.training, type = 'raw')
+data.testing$rf_pred <- predict.train(rf.model, data.testing, type = 'raw')
+
+train.pred  <- ifelse(data.training$rf_pred > 0.5, 1, 0)
+error = mean(train.pred != data.training$target)
+print(paste('RF Training Model Accuracy', 1-error))
+auc(as.numeric(data.training$target), as.numeric(train.pred))
+
+test.pred  <- ifelse(data.testing$rf_pred > 0.5, 1, 0)
+error = mean(test.pred != data.testing$target)
+print(paste('RF Testing Model Accuracy', 1-error))
+auc(as.numeric(data.testing$target), as.numeric(test.pred))
+```
+
+```{r}
+write.csv(data.all, "data.csv", row.names=FALSE)
+```
+

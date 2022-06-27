@@ -1,0 +1,45 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+Select variables via penalized regression
+```{r}
+# Set the formula
+#Change response to target
+```
+
+
+```{r}
+f <- as.formula(paste('target ~ ',paste(vars.subset[-10], collapse = '+')))
+```
+
+
+```{r}
+df <- data.training[,vars.subset]
+X <- model.matrix(f,  data = df)
+#X <- as.matrix(f, data = df)
+
+# Perform lasso regression with cross-validation
+# Note that this algorithm explores several values of lambda
+model.lasso <- cv.glmnet(X,y = df$target, family = "binomial",alpha = 1, standarddize = TRUE) 
+
+plot(model.lasso)
+
+best_coefs <- coef(model.lasso, s = 'lambda.min')
+# Convert to a matrix for easier manipulation
+coefs <- as.matrix(best_coefs)
+
+# Print the variables and associated coefficients
+print(coefs)
+
+#  Just get the variables with coefficients
+vars.keep <- as.vector(dimnames(coefs)[[1]][coefs != 0])[-1]
+vars.keep
+
+```
+```{r}
+```{r}
+library(MASS)
+stepAIC(glm.model, k=log(nrow(data.training)))
+```

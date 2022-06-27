@@ -1,0 +1,193 @@
+---
+title: "Module 5 Practice"
+output:
+  html_notebook: default
+  html_document: default
+---
+
+You may want to clear the environment before proceeding just to make it easier to find the objects created by this practice.
+
+In this practice we will perform feature generation and feature selection on the variables in the MEPS data in order to prepare it for modeling.  
+
+Run CHUNK 1 to load the MEPS data provided through the link on the e-learning slides. This data reflects the modifications made during Module 4 Practice although we recommend you use the data provided rather than your own data to begin with to ensure the code runs smoothly. The holdout data set won't be provided until the next module.
+    
+```{r}
+#CHUNK 1
+# Read in the MEPS training data
+
+load("meps.Training_m4c7.RData")
+
+```
+
+In the module 4 practice, we already completed a bit of feature generation through PCA. The HealthStatus_PC variables are available for us to use as features in future modeling. Indeed from the initial visualisations HealthStatus_PC4 looked particularly interesting. We have already created this feature and it is in the loaded data set.
+
+One other feature generation task we could perform is the binarization of the occupation variable. Run CHUNK 2 to complete this task for the occupation variable.
+
+```{r}
+library(ggplot2)
+# Look at the industry variable distribution
+ggplot(data = meps.Training, aes(x = as.factor(occupation))) +
+  geom_bar()
+
+```
+
+
+```{r}
+
+library(plyr)
+# Using the data dictionary as a reference, relabel the factor levels. We will group lower exposure levels into "Other"
+meps.Training$occupation_group <- mapvalues(as.factor(meps.Training$occupation),
+                                          from = c(-9, -1, 1, 2, 3, 4, 5, 6, 7, 8, 9, 11),
+                                          to = c("NA",
+                                                 "NA",
+                                                 "1 MANAGEMENT",
+                                                 "2 PROFESSIONAL",
+                                                 "3 SERVICE",
+                                                 "4 SALES",
+                                                 "5 ADMIN",
+                                                 "OTHER",
+                                                 "OTHER",
+                                                 "8 PRODUCTION",
+                                                 "OTHER",
+                                                 "OTHER"))
+
+table(meps.Training$occupation_group)
+
+```
+
+Relevel - to see the effect of changing it. Recall that NA is the base as set by R.
+
+```{r}
+meps.Training$occupation_group <- relevel(meps.Training$occupation_group, ref = "2 PROFESSIONAL")
+table(meps.Training$occupation_group)  
+```
+
+
+Run CHUNK 3 to use mutual information to select variables.
+
+```{r}
+#CHUNK 3
+# Load the required libraries
+library(infotheo)
+library(data.table)
+library(ggplot2)
+
+# Performing this on the entire data set takes a lot of time and memory, so we specify a smaller subset here.
+vars.subset <- c("Target",
+                 "age", # Initial features we created
+                 "bmi",
+                 "personIncome",
+                 "familyIncome",
+                 "occupation_group" , # The binarized occupation variables
+                 "sex",
+                 "HealthStatus_PC1", # The principal component features
+                 "HealthStatus_PC2",
+                 "HealthStatus_PC3",
+                 "HealthStatus_PC4",
+                 "HealthStatus_PC5",
+                 "DENTIN31", # Some additional features from the data (see the data dictionary for more information)
+                 "DNTINS31",
+                 "PMEDIN31",
+                 "PMDINS31",
+                 "FOODMN14",
+                 "PRVEV14",
+                 "EMPST31")
+
+# Create a discrete version of our data as required by the mutual information function
+meps.Train.disc <- discretize(meps.Training[,vars.subset], "equalfreq")
+
+# Calculate the mutual information between all of our variables
+v.mi <- mutinformation(meps.Train.disc, method = 'emp')
+
+# Visualize the result
+melted.v.mi <- melt(v.mi)
+ggplot(data = melted.v.mi, aes(x = Var1, y = Var2, fill = value)) +
+  geom_tile() +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1))
+
+# Slice the mutual information matrix to only include the comparisons to Target. Note that this code works here because the Target is the first variable. If, for example, it were the third variable, we would use v.mi[3,c(1:2,4:nrow(v.mi))].
+v.mi.slice <- v.mi[1,2:nrow(v.mi)]
+
+# Sort the mutual information values and take the top 10
+sorted.vars <- sort(v.mi.slice, decreasing = T)
+mi.vars <- names(sorted.vars[1:18])
+data.frame(sorted.vars[1:18])
+
+
+```
+
+Alternatively we could use penalized regression to perform embedded feature selection.
+
+Run CHUNK 4 to select variables via penalized regression.
+
+```{r}
+# CHUNK 4
+
+# Import the 'glmnet' library
+library(glmnet)
+
+# Set the formula
+f <- as.formula(paste('Target ~ ',paste(vars.subset[-1], collapse = '+')))
+
+# glmnet requires a design matrix not a data frame
+# Here we are creating a model (design) matrix 
+X <- model.matrix(f, data = meps.Training)
+
+# Perform lasso regression with cross-validation
+# Note that this algorithm explores several values of lambda
+model.lasso <- cv.glmnet(X, 
+                         y = log(meps.Training$Target), # We take the log of the target value to make it "gaussian-like"
+                         family = "gaussian",
+                         alpha = 1) 
+
+# Since the glmnet function runs through several lambda values, there are many models in the resulting object
+# We can browse the coefficients in each model by using the coef function
+# We can pull the model with the lowest mean cross-validation error using the 'lambda.min' keyword
+best_coefs <- coef(model.lasso, s = 'lambda.min')
+
+# Convert to a matrix for easier manipulation
+coefs <- as.matrix(best_coefs)
+
+# Print the variables and associated coefficients
+print(coefs)
+
+# As you can see, not all of the variables have an assigned coefficient
+#  Just get the variables with coefficients
+vars.keep <- as.vector(dimnames(coefs)[[1]][coefs != 0])[-1]
+
+# See if there is any correspondence between the two feature selection attempts
+intersect(mi.vars, vars.keep)
+```
+
+Run CHUNK 5 to see more analysis of the lasso regression model.
+
+```{r}
+# CHUNK 5
+
+# Look at a plot of the performance of the model for the different values of lambda
+plot(model.lasso)
+
+# From the chart we can see that the errors aren't significantly different between the models that used a log(lambda) of
+# -5.4 and -2.2. Thus we could be more conservative and use the model corresponding to lambda.1se instead
+model.lasso$lambda.1se
+
+coef(model.lasso, s = 'lambda.1se')
+
+```
+
+Note that with the penalized regression analysis, we chose to use a lasso regression instead of an elastic net which would allow us to optimize the value of alpha as well. Try different values of alpha to see if you can get a better result.
+
+The next chunks use stepAIC with BIC and backward selection to remove variables.
+
+```{r}
+f <- as.formula(paste('Target ~ ',paste(vars.subset[-1], collapse = '+')))
+glm <- glm(f,data=meps.Training, family=gaussian(link = "log"))
+summary(glm)
+```
+
+
+```{r}
+library(MASS)
+stepAIC(glm, k=log(nrow(meps.Training)))
+```
+

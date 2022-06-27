@@ -1,0 +1,185 @@
+```{r}
+#https://www.kaggle.com/jeetranjeet619/predict-future-sales-r
+#Load in packages
+library(tidyverse)
+library(lubridate)
+library(reshape2)
+library(scales)
+```
+
+
+```{r}
+#Load in dataset, save in new variable, examine structure
+
+#sales train data
+sales_train <- read.csv("Sales Data/sales_train.csv",stringsAsFactor = TRUE)
+items <- read.csv("Sales Data/items.csv",stringsAsFactor = TRUE)
+
+str(sales_train)
+str(items)
+
+
+sale_item_join <- merge(sales_train, items, by = c("item_id"),all.x = TRUE)
+sale_item_join$item_name<- NULL
+
+rm("items","sales_train")
+
+sale_item_join$date <- dmy(sale_item_join$date)
+#Lets apply lubridate functions to create year day and month columns
+sale_item_join$year <- year(sale_item_join$date)
+sale_item_join$month <- month(sale_item_join$date)
+sale_item_join$day <- day(sale_item_join$date)
+sale_item_join$weekday <- weekdays(sale_item_join$date)
+#lets convert year and weekday to factor
+sale_item_join$year <- as.factor(sale_item_join$year)
+sale_item_join$weekday <- as.factor(sale_item_join$weekday)
+
+
+```
+```{r}
+#Let exam how many products are sold monthly
+monthly_count <- sale_item_join %>%
+  group_by(year, month,shop_id, item_id) %>%
+  summarise(item_count_month = sum(item_cnt_day)) %>%
+  ungroup()
+
+summary_data <- merge(sale_item_join,monthly_count, by = c("year", "month","shop_id", "item_id"), x.all = TRUE)
+str(summary_data)
+
+```
+```{r}
+#Exploratory data analysis
+#correlation of matrix
+cor_data <- summary_data %>%
+    select(3:4,7:9,12)
+
+melt(cor(cor_data)) %>%
+  ggplot(.,aes(Var1,Var2, fill = value) )+
+  geom_tile() +
+  scale_fill_gradient(low="grey",high ="darkred") +
+  geom_text(aes(Var1,Var2, label = round(value,2)),size =4)+
+  labs(title = "Correlation Matrix", x = "Numeric column", y = "Numeric Column", fill = "Coefficient Range") +
+  theme(axis.text.x = element_text(vjust = 0.5,angle = 45),
+        plot.title = element_text(face = "bold",hjust = 0.5))
+
+
+```
+```{r}
+summary_data %>%
+  group_by(shop_id) %>%
+  summarise(item_count = sum(item_count_month)) %>%
+  ggplot(.,aes(reorder(as.factor(shop_id),item_count),item_count,fill = as.factor(shop_id))) +
+  geom_bar(stat = "identity", show.legend = FALSE) +
+  coord_flip() +
+  labs(title = "Shop sales", x = "Shop id", y = "Item Count")
+  
+```
+```{r}
+summary_data %>%
+  group_by(shop_id) %>%
+  summarise(item_count = n_distinct(item_id)) %>%
+  ggplot(.,aes(reorder(as.factor(shop_id),item_count),item_count,fill = as.factor(shop_id))) +
+  geom_bar(stat = "identity", show.legend = FALSE) +
+  coord_flip() +
+  labs(title = "Most Items Available", x = "Shop id", y = "Item Count")
+
+#Most popular item sold in each shop
+summary_data %>% 
+  group_by(shop_id, item_id) %>% 
+  summarise(items_count = sum(item_cnt_day)) %>% 
+  filter(items_count == max(items_count)) %>% 
+  arrange(desc(items_count)) %>% 
+  ungroup() %>% 
+  ggplot(., aes(reorder(as.factor(shop_id), items_count), items_count, fill = as.factor(item_id))) +
+  geom_bar(stat = "identity") +
+  coord_flip() + 
+  labs(title = "Shop sales", x = "Shop ID", ylab = "Item Count",
+       fill = "Item Id")
+```
+```{r}
+summary_data %>%
+  group_by(month,day) %>%
+  summarise(sales = sum(item_cnt_day*item_price)) %>%
+  ungroup() %>%
+  ggplot(.,aes(factor(day),sales,color = factor(month))) +
+  geom_line(aes(group = month)) +
+  geom_point() +
+  labs(title = "Day - Month sales", x = "Day", fill ="Months")
+```
+```{r}
+#How many unique categories of Item are there
+summary_data %>%
+  select(item_category_id) %>%
+  distinct() %>%
+  count()
+
+##Which shop has the most item categories
+summary_data %>%
+  group_by(shop_id) %>%
+  summarise(cat_count = n_distinct(item_category_id)) %>%
+  ungroup() %>%
+  ggplot(.,aes(reorder(as.factor(shop_id),cat_count),cat_count,fill = as.factor(shop_id))) +
+  geom_bar(stat = "identity") +
+  coord_flip() +
+  xlab("Shop_ID") + ylab("total item categories") + ggtitle("Shop with most item categories")
+
+```
+```{r}
+#Highest grossing product
+summary_data %>%
+  group_by(item_category_id) %>%
+  summarise(totalgross = sum(item_price*item_cnt_day)) %>%
+  ungroup() %>%
+  ggplot(.,aes(reorder(as.factor(item_category_id),totalgross),totalgross,fill = as.factor(item_category_id))) +
+  geom_bar(stat = "identity") +
+  coord_flip() +
+  xlab("Item_ID") + ylab("Total Gross") + ggtitle("Highest grossing product")
+```
+
+
+```{r}
+#which item gets sold most and under which category
+summary_data %>%
+  group_by(item_category_id,item_id) %>%
+  summarise(product = sum(item_cnt_day*item_price)) %>%
+  filter(product == max(product)) %>%
+  ungroup() %>%
+  ggplot(.,aes(reorder(factor(item_category_id),product),product, fill = factor(item_id))) +
+  geom_bar(stat = "identity") +
+  coord_flip() 
+  
+
+
+```
+```{r}
+#Individual plot for Day-Month Sales
+summary_data %>% 
+  group_by(month, day) %>% 
+  summarise(sales = sum(item_cnt_day*item_price)) %>% 
+  ungroup() %>%
+  ggplot(.,aes(factor(day),sales,fill = as.factor(day))) +
+  geom_bar(stat = "identity") +
+  facet_wrap(~month, ncol =2)
+  
+```
+```{r}
+#Items sold daily
+summary_data %>% 
+  group_by(date) %>% 
+  summarise(items_daily = sum(item_cnt_day)) %>% 
+  ungroup() %>%
+  ggplot(.,aes(date,items_daily,color= items_daily)) +
+  geom_line() +
+  xlab("Date") + ylab("Daily Sales")
+```
+```{r}
+summary_data %>% 
+  group_by(weekday) %>% 
+  summarise(weeksales = sum(item_cnt_day)) %>% 
+  ungroup() %>%
+  ggplot(.,aes(reorder(as.factor(weekday),weeksales),weeksales,fill= factor(weekday))) +
+  geom_bar(stat = "identity") +
+  coord_flip() +
+  xlab("Week sales") + ylab("Week Day")
+```
+

@@ -1,0 +1,498 @@
+---
+title: "Module 6 Practice"
+
+---
+
+## Supervised learning
+
+* Build a GLM
+* Build a Random Forest
+* Compare Models
+
+```{r}
+# Load libraries
+library(caret)
+library(randomForest)
+library(data.table)
+library(ggplot2)
+# Set up our modeling data
+load("meps.Training_m5.RData")
+```
+
+## Supervised Model Building
+
+At this point, our data should be sufficiently prepared to start building statistical models. We will step through the basics of fitting two models, evaluating the fit, and comparing the model performance on the holdout data. This example will be basic, but it should be a good basis to support further exploration and improvement.
+
+We will begin by setting up our modeling data.  We can use our predefined training data split to get our training data.  We will also specify our formula object.  Several functions used in building models can use the formula to direct which variables to include. 
+
+### Generic Model Setup
+
+```{r}
+
+# create a formula to be used for model building. 
+# We are using a small selection of features from the module 5 practice
+vars.training <- c("age",
+                   "bmi",
+                   "personIncome",
+                   "familyIncome",
+                   "PMEDIN31",
+                   "PRVEV14")
+
+
+meps.Training <- meps.Training[,c("Target",vars.training)] #Remove the variables we aren't using
+```
+
+Some observations of the data indicated some cleaning is in order.
+
+```{r}
+#negative bmi are missing values, remove them
+meps.Training <- meps.Training[meps.Training$bmi > 0,]
+#family income has negative values, remove them
+meps.Training <- meps.Training[meps.Training$familyIncome >=0,]
+#PMEDIN31 has missing values at -1
+meps.Training <- meps.Training[meps.Training$PMEDIN31>0,]
+#personal income has negatives and is zero for a lot of people. Add an indicator variable for those who have an income.
+meps.Training <- meps.Training[meps.Training$personIncome >= 0,]
+meps.Training$hasIncome <- ifelse (meps.Training$personIncome > 0, 1, 0)
+summary(meps.Training)
+
+#Add the new variable to the training list and create a formula
+vars.training <- c(vars.training, "hasIncome")
+model.formula <- as.formula(paste("Target ~ ", paste(vars.training, collapse = "+")))
+```
+
+### Build a GLM
+
+Now that we have our data prepared, we can build a basic GLM.  In this case, we are using a gamma error structure and a log link in order to model total dental charges. A few functions for visualisation of model outputs that we used in Module 6 are reproduced below for your convenience.
+
+```{r}
+# fit a glm
+glm.model <- glm(formula = model.formula,
+                 data = meps.Training,
+                 family = Gamma(link = 'log'))
+
+# print model summary including coefficients
+summary(glm.model)
+
+# add glm predictions to data frame
+meps.Training$glm_pred <- predict(glm.model, meps.Training, type = 'response')
+```
+
+To investigate our model fit we can use the following function to make some nice plots. You don't have to understand how this function works but it can be useful to if you wish to modify it in the future for different purposes. Feel free to modify the colour schemes to suit your preference.
+
+```{r}
+# Plots either a one-way or two-way plot of a the response variable by a feature
+# If a oneway plot, lines is the names of additional responses to be plotted on they y axis 
+# If a twoway plot, then lines is the other feature to segment the plot by (only one other feature allowed)
+# Note this function only allows for equally weighted observations
+
+plot_feature <- function(datf, feature, response = "Target", lines = c(), title = "", two_way = FALSE){
+  
+  # Summarizes the actual and predicted values by grouping 'feature' (and feature2 if two_way)
+  if (two_way) {
+    
+    feature_sum <- aggregate(datf[,response],
+                             by = list(feature = datf[,feature], feature2 = datf[,lines[1]]),
+                             FUN = mean)
+    feature_melt <- melt(feature_sum , id=c('feature', 'feature2'))
+  } 
+  else {
+  
+    feature_sum <- aggregate(datf[,c(response, lines)],
+                           by = list(feature = datf[,feature]),
+                           FUN = mean)
+    feature_melt <- melt(feature_sum , id=c('feature'))
+  }
+  
+  # Calculate the exposure bars
+  feature_exp <- aggregate(datf[,response],
+                           by = list(feature = datf[,feature]),
+                           FUN = length)
+  
+  # Rescale the weight variable so that it doesn't make the plot look strange
+  feature_exp$x <- feature_exp$x * 0.1
+  colnames(feature_exp)[2] <- "Weight"
+  
+  # Add the weight variable on
+  feature_melt <- merge(feature_melt, feature_exp, by = "feature")
+  
+  if (two_way) {
+    feature_melt$variable <- as.factor(feature_melt$feature2)
+  }
+  
+  # Plot the data 
+  p <- ggplot(feature_melt, aes(x = feature)) +
+    geom_bar(aes(y = Weight), stat = "identity", alpha = 0.25, fill = "blue") + # The exposure bars
+    geom_line(aes(y = value, group = variable, color = variable)) + 
+    theme(axis.text.x  = element_text(angle=45)) +
+    xlab(feature) +
+    ylab('Dental Expense') +
+    ggtitle(title) 
+  
+  # Add the correct legend title to the plot
+  if (two_way) {
+    p <- p + scale_colour_discrete(name=lines[1])
+  }
+  else {
+    p <- p + scale_colour_discrete(name="response")
+  }
+  
+  return(p)
+}
+
+```
+
+Now that we have a convenient plotting function, we can visualize the results.
+
+```{r}
+# Visualize model results
+meps.Training$age_cuts <- cut(meps.Training$age, breaks = c(-Inf,5, 12, 18, 25, 30, 45, 60, 80, Inf))
+meps.Training$bmi_cuts <- cut(meps.Training$bmi, breaks = c(-Inf, 10, 20, 25, 30, 40, 50, Inf))
+
+
+plot_feature(feat = 'age_cuts', 
+             datf = meps.Training, 
+             lines = c('glm_pred'),
+             title = "Actual vs Predicted by Age on Training data")
+plot_feature(feat = 'PRVEV14', 
+             datf = meps.Training, 
+             lines = c('glm_pred'),
+             title = "Actual vs Predicted by PRVEV14 on Training data")
+plot_feature(feat = 'bmi_cuts', 
+             datf = meps.Training, 
+             lines = c('glm_pred'),
+             title = "Actual vs Predicted by BMI on Training data")
+
+```
+
+Another way to do this is to use smoothing rather than bucketing. The loess function (discussed in Module 6B) does this by averaging nearby values as it moves through the values of the predictor variable. The scatterplot is of both the predicted and target values against age. The loess curves are also for both the predicted and target values.
+
+The following function makes this one-way plot.
+
+```{r}
+loessplot <- function(datf, feature, target, prediction, ymax, title = "") {
+#datf is the dataframe
+#feature is the predictor variable
+#target is the name of the target variable
+#prediction is the name of the variable that holds the predicted value
+#ymax is the maximum value of y to plot.
+ 
+plotdata <- datf[,c(feature,target,prediction)] #extract the key variables
+plotdata.melt <- melt(plotdata,id = feature) #arrange so that both target and predictions can be plotted
+#get the counts for each value of the feature, this assumes integers
+feature.counts <- aggregate(datf[,target],
+                           by = list(feature = datf[,feature]),
+                           FUN = length)
+
+feature.counts$x <- feature.counts$x * 0.2 * ymax / max(feature.counts$x)
+colnames(feature.counts)[1] <- feature
+colnames(feature.counts)[2] <- "Weight"  
+plotdata.melt <- merge(plotdata.melt, feature.counts, by = feature)
+  
+ggplot(data=plotdata.melt, aes(x=plotdata.melt[,feature])) + geom_point(aes(y=value,group = variable, color = variable), size = 0.5) + geom_smooth(aes(y=value, group=variable, color=variable), method = "loess", span = 0.2, se = FALSE)  + scale_color_discrete(name="response") + ylab("response") + xlab(feature) + coord_cartesian(ylim = c(0,ymax)) +
+geom_smooth(aes(y=Weight), method = "loess", span = 0.2) + 
+ggtitle(title)
+}  
+```
+
+
+```{r}
+loessplot(datf = meps.Training, feature = "age", target = "Target", prediction = "glm_pred", ymax = 3000, title = "GLM actual and predictions by age on training data")
+```
+
+
+```{r}
+# We probably don't want to include the non-significant variables so we can remove those from our model and then start looking for interaction effects
+glm.model2 <- glm(formula = as.formula("Target ~ 
+                                        age +
+                                        bmi +
+                                        personIncome +
+                                        familyIncome +
+                                        hasIncome +
+                                        PRVEV14"),
+                 data = meps.Training,
+                 family = Gamma(link = 'log'))
+
+
+# print model summary including coefficients
+summary(glm.model2)
+
+
+```
+
+Notice the slight improvement in AIC
+
+The following plot allows for an exploration of an interaction. Here it looks at age and bmi. The plots require factor variables, so the bucketed versions are used.
+
+```{r}
+# Visual exploration of interaction. 
+
+ggplot(meps.Training,aes(x=age_cuts,y=log(Target),fill=bmi_cuts))+
+  geom_boxplot()+
+  facet_wrap(~age_cuts,scale="free")
+```
+
+It appears that the effect of bmi differs by age bucket. It is not clear if the effect can be modeled by an interaction term (multiplying the two variables), but the next check gives it a try.
+
+
+```{r}
+# Add the age-bmi interactions. Consider exploring some other pairs.
+
+glm.model.int <- glm(formula = as.formula("Target ~ 
+                                       age +
+                                       bmi +
+                                       personIncome +
+                                       familyIncome +
+                                       PRVEV14 +
+                                       hasIncome +
+                                       age * bmi"),
+                 data = meps.Training,
+                 family = Gamma(link = 'log'))
+
+
+# Print model summary including coefficients
+summary(glm.model.int)
+
+# add glm predictions to data frame
+meps.Training$glm_pred_int <- predict(glm.model.int, meps.Training, type = 'response')
+
+# Visualize the interaction
+plot_feature(feature = 'age_cuts', 
+             datf = meps.Training,
+             response = 'glm_pred_int',
+             lines = c('bmi_cuts'),
+             title = "Two-way plot of glm_pred by Age and BMI on Training data",
+             two_way = TRUE)
+
+plot_feature(feature = 'age_cuts', 
+             datf = meps.Training,
+             response = 'Target',
+             lines = c('bmi_cuts'),
+             title = "Two-way plot of Target by Age and BMI on Training data",
+             two_way = TRUE)
+
+# Look at the one way results after adding in the interaction
+plot_feature(feature = 'age_cuts', 
+             datf = meps.Training, 
+             lines = c('glm_pred_int'),
+             title = "Actual vs Predicted by Age on Training data")
+plot_feature(feature = 'PRVEV14', 
+             datf = meps.Training, 
+             lines = c('glm_pred_int'),
+             title = "Actual vs Predicted by PRVEV14 on Training data")
+plot_feature(feature = 'bmi_cuts', 
+             datf = meps.Training, 
+             lines = c('glm_pred_int'),
+             title = "Actual vs Predicted by BMI on Training data")
+
+loessplot(datf = meps.Training, feature = "age", target = "Target", prediction = "glm_pred_int", ymax = 3000, title = "GLM actual and predictions by age on training data")
+
+```
+
+The interaction plot on the actual target value looks a bit dubious. It may just be because we are using too many cuts for the BMI variable which could make it difficult to pick out the trend that the GLM appears to be picking up. As an exercise, investigate further and decide whether you want to keep the interaction or not - you may also want to consider using a validation data set (you will need to split this out from the training data) to help you make your decision. For the pruposes of this practice we will continue with the interaction in the model.
+
+
+It looks like there is a spike at the teenage years that the model is finding it difficult to fit to. We missed this at the feature generation stage so we will now create a variable for "is_teenager" and test whether adding that to the model helps. 
+
+```{r}
+# Sample solution
+meps.Training$is_teenager <- ifelse (meps.Training$age <= 18 & meps.Training$age > 12, 1, 0)
+
+glm.model3 <- glm(formula = as.formula("Target ~ 
+                                       age +
+                                       is_teenager +
+                                       bmi +
+                                       personIncome +
+                                       familyIncome +
+                                       PRVEV14 +
+                                       hasIncome +
+                                       age * bmi"),
+                 data = meps.Training,
+                 family = Gamma(link = 'log'))
+
+
+# Print model summary including coefficients
+summary(glm.model3)
+
+# add glm predictions to data frame
+meps.Training$glm_pred3 <- predict(glm.model3, meps.Training, type = 'response')
+
+
+# Look at the one way results after adding in the additional feature
+plot_feature(datf = meps.Training, 
+             feature = 'age_cuts', 
+             response = 'Target', 
+             lines = c('glm_pred3'))
+plot_feature(datf = meps.Training, 
+             feature = 'PRVEV14', 
+             response = 'Target', 
+             lines = c('glm_pred3'))
+plot_feature(datf = meps.Training, 
+             feature = 'bmi_cuts', 
+             response = 'Target', 
+             lines = c('glm_pred3'))
+
+loessplot(datf = meps.Training, feature = "age", target = "Target", prediction = "glm_pred3", ymax = 3000, title = "GLM actual and predictions by age on training data")
+```
+
+Note, we need to be careful with this type of iterative improvement because we can "see the answer" and may end up overfitting to the training data. This could result in a model that performs poorly on the hold out data set which would mean our efforts have been a waste. GLMs are very manual to build and thus don't fall nicely into the cross-validation framework we will be using for the other models built in this practice. We only used the full training data above, but you may wish to split the training data into a training and validation set to allow you to make better decisions about which factors to include/exclude from the GLM model (just compare predictions on the validation set to actual target values). Be careful of overfitting to the validation data set however.
+
+Continue trying to improve upon the GLM model above. You may want to store the different models you create (e.g. in glm.model2 etc.) so that you can test the performance of your models later in the practice.
+
+Also note that some of the variables are no longer signinficant and be worth removing.
+
+### Build a Random Forest Model
+
+Let us now build a basic Random Forest model using the caret and randomForest packages.  Note: caret will automatically trigger the installation of whichever package is necessary for the chosen method (in this case: randomForest for 'rf').  The following code can be used to build a Random Forest model.  In this case, the NA values are being omitted from the data set.  Also, caret will automatically perform a grid search for the mtry hyperparameter.
+
+Note that we revert to using model.formula. Trees look for interactions without being told and should also be able to find non-linear effects such as being a teenager.
+
+```{r}
+# use caret to build an rf
+
+# Set up the trainControl 
+tr.ctrl <-  trainControl(method = "cv",
+                         number = 5)
+
+# Note: caret will automatically perform a parameter search
+rf.model <- train(form = model.formula,
+                  data = meps.Training[,c(vars.training, "Target")],
+                  method = 'rf',
+                  trControl = tr.ctrl,
+                  ntree = 100,
+                  predict = T)
+
+# Look at the output of the training process
+plot(rf.model)
+
+# Add predictions to the training data
+meps.Training$rf_pred <- predict.train(rf.model, meps.Training[,c(vars.training, "Target")], type = 'raw')
+
+```
+
+With a random forest model built we can investigate the results.
+
+```{r}
+importance(rf.model$finalModel)
+partialPlot(rf.model$finalModel, meps.Training[,c(vars.training, "Target")], x.var = "age")
+
+# Look at the one way results of the random forest model
+plot_feature(datf = meps.Training, 
+             feature = 'age_cuts', 
+             response = 'Target', 
+             lines = c('rf_pred'))
+plot_feature(datf = meps.Training, 
+             feature = 'PRVEV14', 
+             response = 'Target', 
+             lines = c('rf_pred'))
+plot_feature(datf = meps.Training, 
+             feature = 'bmi_cuts', 
+             response = 'Target', 
+             lines = c('rf_pred'))
+
+loessplot(datf = meps.Training, feature = "age", target = "Target", prediction = "rf_pred", ymax = 3000, title = "RF actual and predictions by age on training data")
+```
+
+Notice for the random forest model that the spike at the teenage years was automatically picked up. The loess version shows that all the fluctuations were picked up.
+
+The results of the random forest model look good, but it almost fits "too well", indicating some level of overfitting. Because caret only lets us tune the mtry parameter we will need to turn to a more manual cross validation approach in order to find better values for the depth of the trees etc. to avoid overfitting. We leave this as an exercise.
+
+
+### Build additional models
+
+We have a GLM and a Random Forest model. Try and build some of the other model types we saw in module 6, like a GBM, decision tree or KNN model.
+
+### Evaluate the model performance on the holdout data
+
+Now that we have all of our models built, we can compare them on the holdout or test data. You will need to add the relevant code to see the performance of any other models you have built.
+
+**Note: In a real modelling exercise, you should choose your final model (based on validation or cross validation performance) before this point. By definition one of your models will do better on the holdout data so choosing the "best" model based on this may mean that you overfit to the holdout data. The holdout data should purely be as a sense check that your model hasn't overfitted terribly to the training data.**
+
+Before we use the holdout data, remember we made many modifications to the data including generating various features over the course of our analysis. We have prepared the holdout data for you so that any transformations made to the training data in the module 4 and 5 practices are also applied to the holdout, however, transformations made in this practice still need to be applied. The code below generates the additional feature used in the GLM analysis, you will need to add the code for any other transformations you have made.
+
+*Most of the transformations in module 4 and 5 practices are straightforward to apply to the holdout data with the exception of the principle components. To see how this is done, refer to the modified version of the module 4 practice that is available from the e-learning portal.*
+
+```{r}
+# Load the holdout data
+load("meps.Holdout_form6.RData")
+
+#Make the same modications as before.
+
+#negative bmi are missing values, remove them
+meps.Holdout <- meps.Holdout[meps.Holdout$bmi > 0,]
+#family income has negative values, remove them
+meps.Holdout <- meps.Holdout[meps.Holdout$familyIncome >=0,]
+#PMEDIN31 has missing values at -1
+meps.Holdout <- meps.Holdout[meps.Holdout$PMEDIN31>0,]
+#personal income has negatives and is zero for a lot of people. Add an indicator variable for those who have an income.
+meps.Holdout <- meps.Holdout[meps.Holdout$personIncome >= 0,]
+meps.Holdout$hasIncome <- ifelse (meps.Holdout$personIncome > 0, 1, 0)
+meps.Holdout$is_teenager <- ifelse (meps.Holdout$age <= 18 & meps.Holdout$age > 12, 1, 0)
+meps.Holdout <- meps.Holdout[,c(vars.training,"is_teenager","Target")]
+summary(meps.Holdout)
+
+```
+
+```{r}
+# compare the models based on the training data predictions
+print(paste0('RF (train) RMSE: ', RMSE(meps.Training$rf_pred, meps.Training$Target)))
+print(paste0('GLM (train) RMSE: ', RMSE(meps.Training$glm_pred3, meps.Training$Target)))
+
+# add predictions to the holdout sample
+meps.Holdout$rf_pred <- predict.train(rf.model, meps.Holdout, type = 'raw')
+meps.Holdout$glm_pred3 <- predict(glm.model3, meps.Holdout, type = 'response')
+
+# compare the models based on the test data predictions
+print(paste0('RF (test) RMSE: ', RMSE(meps.Holdout$rf_pred, meps.Holdout$Target)))
+print(paste0('GLM (test) RMSE: ', RMSE(meps.Holdout$glm_pred, meps.Holdout$Target)))
+```
+
+Interestingly, the random forest model, while it does much better on the training data, actually performs worse on the test data. This indicates that the random forest model is suffering from significant overfitting. Hopefully this should have been detected at an earlier stage. The only course of action at this stage if you are not happy with your chosen model is to resample your training and holdout data sets and redo the analysis with more conservative hyperparameter choices.
+
+### Check Actual vs. Expected
+
+We can also compare the actual dental costs to those predicted by each of the models on both the training and holdout data sets.
+
+```{r}
+
+# plot actual vs. expected for a few features to compare the fit
+plot_feature(datf = meps.Training, 
+             feature = 'age_cuts', 
+             response = 'Target', 
+             lines = c('glm_pred3','rf_pred'),
+             title = "Actual vs Predicted by Age on Training data")
+plot_feature(datf = meps.Training, 
+             feature = 'PRVEV14', 
+             response = 'Target', 
+             lines = c('glm_pred3','rf_pred'),
+             title = "Actual vs Predicted by PRVEV14 on Training data")
+plot_feature(datf = meps.Training, 
+             feature = 'bmi_cuts', 
+             response = 'Target', 
+             lines = c('glm_pred3','rf_pred'),
+             title = "Actual vs Predicted by BMI on Training data")
+
+# plot actual vs. expected for a few features to compare the fit
+meps.Holdout$age_cuts <- cut(meps.Holdout$age, breaks = c(-Inf,5, 12, 18, 25, 30, 45, 60, 80, Inf))
+meps.Holdout$bmi_cuts <- cut(meps.Holdout$bmi, breaks = c(-Inf, 10, 20, 25, 30, 40, 50, Inf))
+plot_feature(datf = meps.Holdout, 
+             feature = 'age_cuts', 
+             response = 'Target', 
+             lines = c('glm_pred3','rf_pred'),
+             title = "Actual vs Predicted by Age on Holdout data")
+plot_feature(datf = meps.Holdout, 
+             feature = 'PRVEV14', 
+             response = 'Target', 
+             lines = c('glm_pred3','rf_pred'),
+             title = "Actual vs Predicted by PRVEV14 on Holdout data")
+plot_feature(datf = meps.Holdout, 
+             feature = 'bmi_cuts', 
+             response = 'Target', 
+             lines = c('glm_pred3','rf_pred'),
+             title = "Actual vs Predicted by BMI on Holdout data")
+
+loessplot(datf = meps.Holdout, feature = "age", target = "rf_pred", prediction = "glm_pred3", ymax = 3000, title = "GLM and RF predictions by age on holdout data")
+
+```
+
+Congratulations! You have reached the end of Module 6 practice. 
