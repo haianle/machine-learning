@@ -1,0 +1,244 @@
+---
+title: "Section 6.2 Model complexity, bias and variance"
+output: html_notebook
+---
+
+Run CHUNK 1 to fit polynomials to random data.
+
+```{r echo = FALSE}
+#CHUNK 1
+library(glmnet)
+library(ggplot2)
+library(gridExtra)
+
+set.seed(150) #you might want to remove this comment later on to see if similar results obtain from other randomly generated data sets.
+x <- runif(25,0,10) #generate 25 predictor variables uniformaly over the interval 0 to 10
+df <- data.frame(x = x, y = sin(x) + rnorm(25,0,0.5), fO = sin(x), X1 = x, X2 = x^2, X3 = x^3, X4 = x^4, X5 = x^5, X6 = x^6, X7 = x^7) #generate 25 target variables and features needed to fit polynomial regression models
+
+m1 <- lm(as.formula("y~X1"), data = df)
+m4 <- lm(as.formula("y~X1+X2+X3+X4"), data = df)
+m7 <- lm(as.formula("y~X1+X2+X3+X4+X5+X6+X7"), data = df)
+
+df$m0 <- mean(df$y)
+df$m1 <- predict(m1,newdata = df) 
+df$m4 <- predict(m4,newdata = df) 
+df$m7 <- predict(m7,newdata = df) 
+
+p1 <- ggplot(data = df, aes(x = x)) + geom_point(aes(y = y), size = 3) + geom_smooth(aes(y = fO), se=FALSE, color = "blue", size = 1) + geom_smooth(aes(y = m0), se=FALSE, color = "red") + ggtitle("degree 0") + scale_y_continuous("y") + 
+  annotate("text", x = 2.5, y = 1.1, label = "True process", color = "blue") +
+  annotate("text", x = 2, y = -0.15, label = "Fitted model", color = "red")
+p2 <- ggplot(data = df, aes(x = x)) + geom_point(aes(y = y), size = 3) + geom_smooth(aes(y = fO), se=FALSE, color = "blue", size = 1) + geom_smooth(aes(y = m1), se=FALSE, color = "red") + ggtitle("degree 1") + scale_y_continuous("y") +
+  annotate("text", x = 2.5, y = 1.1, label = "True process", color = "blue") +
+  annotate("text", x = 2, y = -0.3, label = "Fitted model", color = "red")
+p3 <- ggplot(data = df, aes(x = x)) + geom_point(aes(y = y), size = 3) + geom_smooth(aes(y = fO), se=FALSE, color = "blue", size = 1) + geom_smooth(aes(y = m4), se=FALSE, color = "red") + ggtitle("degree 4") + scale_y_continuous("y",limits = c(-2,2)) +
+  annotate("text", x = 2.5, y = 1.1, label = "True process", color = "blue") +
+  annotate("text", x = 2, y = -0.9, label = "Fitted model", color = "red")
+p4 <- ggplot(data = df, aes(x = x)) + geom_point(aes(y = y), size = 3) + geom_smooth(aes(y = fO), se=FALSE, color = "blue", size = 1) + geom_smooth(aes(y = m7), se=FALSE, color = "red") + ggtitle("degree 7") + scale_y_continuous("y",limits = c(-2,2)) +
+  annotate("text", x = 2.5, y = 1.1, label = "True process", color = "blue") +
+  annotate("text", x = 2, y = -0.8, label = "Fitted model", color = "red")
+
+grid.arrange(p1,p2,ncol=2)
+grid.arrange(p3,p4,ncol=2)
+```
+
+Run CHUNK 2 to use simulation to estimate the expected loss and its three components for each of the three polynomial models.This may take a while.
+
+```{r}
+#CHUNK 2
+#Outer loop uses test values from 0.05 to 9.95 to 0.1
+test.dat <- seq(0.05,9.95,0.1)
+ var <- matrix(0,nrow=1,ncol=4) #these will hold the sums over the individual simulations
+ bias <- matrix(0,nrow=1,ncol=4)
+ loss <- matrix(0,nrow=1,ncol=4)
+ error <- 0
+for (i in 1:100) 
+{
+ test.value <- test.dat[i] #fix the test value to use
+ true.model.value <- sin(test.value) #calculate the value using the true model
+
+  y.hat <- matrix(0,nrow=1000,ncol=5) #set up a matrix to hold the key values from the 1000 simulations
+  for (j in 1:1000) #Inner loop works with 1000 simulated training sets
+  {
+       x <- runif(25,0,10)
+df <- data.frame(x = x, y = sin(x) + rnorm(25,0,0.5), X1 = x, X2 = x^2, X3 = x^3, X4 = x^4, X5 = x^5, X6 = x^6, X7 = x^7)
+ y.value <- true.model.value+rnorm(1,0,0.5)
+ y.hat[j,5] <- y.value #we need the observed target value for later use
+m1 <- lm(as.formula("y~X1"), data = df)
+m4 <- lm(as.formula("y~X1+X2+X3+X4"), data = df)
+m7 <- lm(as.formula("y~X1+X2+X3+X4+X5+X6+X7"), data = df)
+test.vector <- data.frame(X1=test.value,X2=test.value^2,X3=test.value^3,X4=test.value^4,X5=test.value^5,X6=test.value^6,X7=test.value^7)
+pred0 <- mean(df$y)
+pred1 <- predict(m1,newdata=test.vector)
+pred4 <- predict(m4,newdata=test.vector)
+pred7 <- predict(m7,newdata=test.vector)
+y.hat[j,1]=pred0
+y.hat[j,2]=pred1
+y.hat[j,3]=pred4
+y.hat[j,4]=pred7 #all the work to now is to get the predicted values into the matrix.
+
+  }
+var[1,1] <- var[1,1] + var(y.hat[,1]) #compute the variance and add to the running totals
+var[1,2] <- var[1,2] + var(y.hat[,2])
+var[1,3] <- var[1,3] + var(y.hat[,3])
+var[1,4] <- var[1,4] + var(y.hat[,4])
+bias[1,1] <- bias[1,1] + (mean(y.hat[,1])-true.model.value)^2 #compute the biases and add to the running totals
+bias[1,2] <- bias[1,2] + (mean(y.hat[,2])-true.model.value)^2
+bias[1,3] <- bias[1,3] + (mean(y.hat[,3])-true.model.value)^2
+bias[1,4] <- bias[1,4] + (mean(y.hat[,4])-true.model.value)^2
+error <- error + var(y.hat[,5] - true.model.value) #add the squared error to the running total
+loss[1,1] <- loss[1,1] + sum((y.hat[,1]-y.hat[,5])^2)/1000 #add the loss to the running total
+loss[1,2] <- loss[1,2] + sum((y.hat[,2]-y.hat[,5])^2)/1000 
+loss [1,3]<- loss[1,3] + sum((y.hat[,3]-y.hat[,5])^2)/1000
+loss[1,4] <- loss[1,4] + sum((y.hat[,4]-y.hat[,5])^2)/1000
+}
+var/100 #get the averages of the running totals and display them
+bias/100
+error/100
+loss/100
+```
+
+Run CHUNK 3 to simulate 1001 observations using equally spaced x-values.
+
+```{r echo = FALSE}
+#CHUNK 3
+set.seed(1000)
+x <- seq(0,10,0.001)
+df <- data.frame(x = x, y = sin(x) + rnorm(1001,0,0.25), fO = sin(x))
+
+ggplot(data = df, aes(x = x)) + geom_point(aes(y = y)) + geom_line(aes(y = fO), color = "red", size = 2)
+
+```
+
+Run CHUNK 4 to fit 10 different models and illustrate variance and bias
+
+```{r echo = FALSE}
+#CHUNK 4
+library(glmnet)
+library(gridExtra)
+
+# Set up the features for a ninth degree polynomial
+df$X1 <- df$x
+df$X2 <- df$x^2
+df$X3 <- df$x^3
+df$X4 <- df$x^4
+df$X5 <- df$x^5
+df$X6 <- df$x^6
+df$X7 <- df$x^7
+df$X8 <- df$x^8
+df$X9 <- df$x^9
+
+# set up the formula
+f <- as.formula("y~X1+X2+X3+X4+X5+X6+X7+X8+X9")
+
+set.seed(293)
+
+# For loop to fit the ten models, each using a new random set of 25 x values
+for (i in c(1:10)) {
+  rows <- sample.int(nrow(df), size = 25)
+  
+  m1 <- lm(f, data = df[rows,]) #fit a model using only those 25 values
+  
+  df[, paste("predict",i,sep = "")] <- predict(m1, newdata = df) #add the predicted values to the dataframe (note that it is determined for all 1001 values, not 25)
+}
+
+# plot each of the fitted curves
+p1 <- ggplot(data = df, aes(x = x)) + 
+        geom_line(aes(y = df$predict1)) +
+        geom_line(aes(y = df$predict2)) +
+        geom_line(aes(y = df$predict3)) +
+        geom_line(aes(y = df$predict4)) +
+        geom_line(aes(y = df$predict5)) +
+        geom_line(aes(y = df$predict6)) +
+        geom_line(aes(y = df$predict7)) +
+        geom_line(aes(y = df$predict8)) +
+        geom_line(aes(y = df$predict9)) +
+        geom_line(aes(y = df$predict10)) +
+        scale_y_continuous("y",limits = c(-2.5,2.5)) +
+        ggtitle("Variance")
+
+#determine the average fitted cureve and plot it along with the sine curve
+df$average <- rowMeans(df[,c(13:22)])
+p2 <- ggplot(data = df, aes(x = x)) + 
+        geom_line(aes(y = fO), color = "blue") +
+        geom_line(aes(y = average), color = "red") +
+        scale_y_continuous("y",limits = c(-2,2)) +
+        annotate("text", x = 2, y = 1.2, label = "True process", color = "blue") +
+        annotate("text", x = 2, y = 0, label = "Avg Model", color = "red") +
+        ggtitle("Bias")
+
+  
+grid.arrange(p1,p2,ncol = 2)
+```
+
+Now repeat the above by running CHUNK 5 and employing the lasso to remove some of the features, letting the regulatization process decide which ones will be removed.
+NOTE - the chunk is currently set to use lambda = 0.001. Rerun the chunk changing the value to 0.01 and then 0.1 to see the effect of reducing complexity.
+
+```{r echo = FALSE}
+#CHUNK 5
+# set up the formula
+f <- as.formula("y~X1+X2+X3+X4+X5+X6+X7+X8+X9")
+
+set.seed(293)
+
+# For loop to fit the models
+for (i in c(1:10)) {
+  # Set up matrix
+  rows <- sample.int(nrow(df), size = 25)
+  X <- model.matrix(f, data = df[rows,])
+  
+  m <- glmnet(X, y = df$y[rows], family = "gaussian", alpha = 1, lambda = 0.001)
+  
+  df[, paste("predict",i,sep = "")] <- predict(m, newx = model.matrix(f, data = df))
+}
+
+#  plot the models
+p1 <- ggplot(data = df, aes(x = x)) + 
+        geom_line(aes(y = df$predict1)) +
+        geom_line(aes(y = df$predict2)) +
+        geom_line(aes(y = df$predict3)) +
+        geom_line(aes(y = df$predict4)) +
+        geom_line(aes(y = df$predict5)) +
+        geom_line(aes(y = df$predict6)) +
+        geom_line(aes(y = df$predict7)) +
+        geom_line(aes(y = df$predict8)) +
+        geom_line(aes(y = df$predict9)) +
+        geom_line(aes(y = df$predict10)) +
+        scale_y_continuous("y",limits = c(-2.5,2.5)) +
+        ggtitle("Variance")
+
+df$average <- rowMeans(df[,c(13:22)])
+p2 <- ggplot(data = df, aes(x = x)) + 
+        geom_line(aes(y = fO), color = "blue") +
+        geom_line(aes(y = average), color = "red") +
+        scale_y_continuous("y",limits = c(-2,2)) +
+        annotate("text", x = 2.8, y = 1.2, label = "True process", color = "blue") +
+        annotate("text", x = 2, y = -0.4, label = "Avg Model", color = "red") +
+        ggtitle("Bias")
+
+  
+grid.arrange(p1,p2,ncol = 2)
+```
+
+CHUNK 6 provides an idealized plot that illustrates the tradeoff. This plot does not relate to the example we have been studying.
+
+```{r echo = FALSE}
+#CHUNK 6
+lambda <- seq(0,0.5,length = 50)
+bias <- 2*lambda
+variance <- (1-lambda)^2
+exp.loss <- bias^2 + variance
+
+df <- data.frame(lambda = lambda, bias2 = bias^2, variance = variance, exploss = exp.loss)
+
+ggplot(data = df, aes(x=lambda)) + 
+  geom_line(aes(y=bias2), color = "red") + 
+  geom_line(aes(y=variance), color = "blue") +
+  geom_line(aes(y=exploss), color = "purple") +
+  annotate("text", x = 0.3, y = 1, label = "Expected Loss", color = "purple") +
+  annotate("text", x = 0.1, y = 0.2, label = "Bias", color = "red") +
+  annotate("text", x = 0.4, y = 0.25, label = "Variance", color = "blue") +
+  theme(axis.title.y = element_blank()) +
+  ggtitle("Bias-Variance tradeoff")
+```
+
+

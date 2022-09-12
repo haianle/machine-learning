@@ -1,0 +1,74 @@
+---
+title: "Module 6.1: Introduction to Predictive Modeling Algorithms"
+output: html_notebook
+---
+
+Run CHUNK 1 to generate some random data and use ordinary least squares regression to fit the function y = x^2.
+
+```{r echo = FALSE}
+#CHUNK 1
+library(ggplot2)
+x <- runif(50, min = 0, max = 2)
+y <- x^2 + rnorm(50,0,0.25)
+df <- data.frame(x = x, y = y, z = x^2)
+
+m <- lm(y~df$z)
+
+ggplot(data = df, aes(x = x)) + geom_point(aes(y = y)) + geom_line(aes(y=m$fitted.values), size = 1, color = "blue")
+
+```
+
+Run CHUNK 2 to see an example of clustering with some randomly generated data.
+
+```{r echo = FALSE}
+#CHUNK 2
+library(gridExtra)
+set.seed(1000)
+income_male <- rnorm(100, 70000, 10000)
+income_female <- rnorm(100, 45000, 5000)
+age <- rnorm(100, 65000, 10000)
+age2 <- rnorm(100, 35000, 5000)
+
+df <- data.frame(a = c(income_male,income_female), b = c(age,age2))
+
+km2 <- kmeans(df, 2)
+km3 <- kmeans(df, 3)
+km4 <- kmeans(df, 4)
+
+df$group2 <- km2$cluster
+df$group3 <- km3$cluster
+df$group4 <- km4$cluster
+
+p1 <- ggplot(data = df, aes(x = b, y = a)) + 
+  geom_point() +
+  theme(axis.text = element_blank()) +
+  ggtitle("Raw data")
+
+p2 <- ggplot(data = df, aes(x = b, y = a)) + 
+  geom_point(color = df$group2 + 1) + 
+  annotate("point", x = km2$centers[1,2], y = km2$centers[1,1], size = 5, color = "black") +
+  annotate("point", x = km2$centers[2,2], y = km2$centers[2,1], size = 5, color = "black") +
+  theme(axis.text = element_blank()) +
+  ggtitle("Clustering with 2 groups")
+
+p3 <- ggplot(data = df, aes(x = b, y = a)) + 
+  geom_point(color = df$group3 + 1) + 
+  annotate("point", x = km3$centers[1,2], y = km3$centers[1,1], size = 5, color = "black") +
+  annotate("point", x = km3$centers[2,2], y = km3$centers[2,1], size = 5, color = "black") +
+  annotate("point", x = km3$centers[3,2], y = km3$centers[3,1], size = 5, color = "black") +
+  theme(axis.text = element_blank()) +
+  ggtitle("Clustering with 3 groups")
+
+p4 <- ggplot(data = df, aes(x = b, y = a)) + 
+  geom_point(color = df$group4 + 1) + 
+  annotate("point", x = km4$centers[1,2], y = km4$centers[1,1], size = 5, color = "black") +
+  annotate("point", x = km4$centers[2,2], y = km4$centers[2,1], size = 5, color = "black") +
+  annotate("point", x = km4$centers[3,2], y = km4$centers[3,1], size = 5, color = "black") +
+  annotate("point", x = km4$centers[4,2], y = km4$centers[4,1], size = 5, color = "black") +
+  theme(axis.text = element_blank()) +
+  ggtitle("Clustering with 4 groups")
+
+grid.arrange(p1,p2,ncol = 2)
+grid.arrange(p3,p4,ncol = 2)
+```
+

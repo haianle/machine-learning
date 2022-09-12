@@ -1,0 +1,208 @@
+---
+title: "Section 6.3 Model Assessment and Selection"
+output: html_notebook
+---
+
+run CHUNK 1 to simulate 50 observations from a quadratic function with error.
+
+```{r}
+#CHUNK 1
+library(ggplot2)
+library(glmnet)
+set.seed(1000)
+x <- runif(50,0,3)
+df <- data.frame(x = x, X1 = x, X2 = x^2,  X3 = x^3, y = 1 + 3*x + 5*x^2 + rnorm(50,0,5), f0 = 1 + 3*x + 5*x^2)
+p1 <- ggplot(data = df, aes(x = x)) + geom_point(aes(y = y), size = 3) + geom_smooth(aes(y = f0), se=FALSE, color = "blue", size = 1)  + ggtitle("Quadratic process") + scale_y_continuous("y") + 
+  annotate("text", x =1, y = 25, label = "True process", color = "blue") 
+p1
+  
+```
+
+Run CHUNK 2 to fit three models and calculate fit measures
+
+```{r}
+#CHUNK 2
+m1 <- lm(y~X1,data=df)
+m2 <- lm(y~X1+X2,data=df)
+m3 <- lm(y~X1+X2+X3,data=df)
+df$pred1 <- predict(m1)
+df$pred2 <- predict(m2)
+df$pred3 <- predict(m3)
+RMSE1 <- sqrt(sum((df$pred1-df$y)^2)/50)
+RMSE2 <- sqrt(sum((df$pred2-df$y)^2)/50)
+RMSE3 <- sqrt(sum((df$pred3-df$y)^2)/50)
+MAE1 <- sum(abs(df$pred1-df$y))/50
+MAE2 <- sum(abs(df$pred2-df$y))/50
+MAE3 <- sum(abs(df$pred3-df$y))/50
+RMSE1
+RMSE2
+RMSE3
+MAE1
+MAE2
+MAE3
+```
+
+RUn CHUNK 3 to see the residual plots
+
+```{r}
+#CHUNK 3
+df$resid1 <- df$y - df$pred1
+df$resid2 <- df$y - df$pred2
+df$resid3 <- df$y - df$pred3
+p1 <- ggplot(data = df, aes(x = pred1)) + geom_point(aes(y = resid1), size = 3) + ggtitle("Straigt line residuals") + scale_y_continuous("y")
+p2 <- ggplot(data = df, aes(x = pred2)) + geom_point(aes(y = resid2), size = 3) + ggtitle("Quadratic residuals") + scale_y_continuous("y")
+p3 <- ggplot(data = df, aes(x = pred3)) + geom_point(aes(y = resid2), size = 3) + ggtitle("Cubic residuals") + scale_y_continuous("y")
+p1
+p2
+p3
+```
+
+run CHUNK 4 to impose an outlier
+
+```{r}
+#CHUNK 4
+df$y.outlier <- df$y
+df$y.outlier[1] <- 50
+m2.outlier <- lm(y.outlier~X1+X2,data=df)
+df$pred2.outlier <- predict(m2.outlier)
+df$resid2.outlier <- df$y.outlier - df$pred2.outlier
+p2 <- ggplot(data = df, aes(x = pred2.outlier)) + geom_point(aes(y = resid2.outlier), size = 3) + ggtitle("Quadratic residuals with outlier") + scale_y_continuous("y")
+p2
+
+```
+
+Run CHUNK 5 to see the effect of increasing variance
+
+```{r}
+#CHUNK 5
+df$y.incvar <- df$f0 + rnorm(50,0,1)*df$f0
+
+m2.incvar <- lm(y.incvar~X1+X2,data=df)
+df$pred2.incvar <- predict(m2.incvar)
+df$resid2.incvar <- df$y.incvar - df$pred2.incvar
+p2 <- ggplot(data = df, aes(x = pred2.incvar)) + geom_point(aes(y = resid2.incvar), size = 3) + ggtitle("Quadratic residuals with increasing variance") + scale_y_continuous("y")
+p2
+```
+
+Run CHUNK 6 to use logistic regression for classificationn and then construct the ROC.
+
+```{r}
+### ROC/AUC
+library(pROC)
+library(stats)
+
+data.all <- read.csv("BreastCancerWisconsinDataSet.csv")
+
+# Basic cleaning
+# set the target: we are trying to predict whether a diagnosis is malignant (M) or benign (B).
+data.all$target [data.all$diagnosis == "M"] = 1
+data.all$target [data.all$diagnosis == "B"] = 0
+
+# All variables available for training
+vars <- names(data.all)[c(-1, -2, -33)]
+data.all <- data.all[c(-1, -2, -33)]
+
+# Build a logistic regression model with 3 features
+glm.3feat <- glm(
+  target ~ radius_mean + area_mean + concavity_mean
+  ,data = data.all
+  ,family = binomial(link = "logit")
+  )
+
+# Build a logistic regression model with 1 feature
+glm.1feat <- glm(
+  target ~ radius_mean
+  ,data = data.all
+  ,family = binomial(link = "logit")
+)
+
+# Add the predictions to the dataset
+pred.3feat <- predict(glm.3feat, data.all)
+data.all$pred.3feat <- pred.3feat
+
+pred.1feat <- predict(glm.1feat, data.all)
+data.all$pred.1feat <- pred.1feat
+
+# Create the confusion matrices using a cut-off of 0.5
+table(data.all$target, data.all$pred.3feat > 0.5)
+table(data.all$target, data.all$pred.1feat > 0.5)
+
+# Plot ROC curve and calculate AUC
+plot(roc(data.all$target, data.all$pred.3feat))
+plot(roc(data.all$target, data.all$pred.1feat), add=TRUE, col='red')
+```
+
+Run CHUNK 7 to see an example of using a validation framework.
+
+```{r}
+#CHUNK 7
+# Validation Example
+# import the stats and caret libraries
+library(caret)
+library(stats)
+
+# Generate some noise univariate data
+set.seed(101)
+x <- sort(floor(rnorm(100, 25, 5))) #generates and sorts random integers
+y <- x*rnorm(length(x), 1.6, 0.5)+10 #target variable has multiplicative noise + 10
+df <- data.frame(x,y)
+
+# Creating a train index to select 60% of the rows as training data
+train_index <- createDataPartition(df$y, times = 1, p = 0.6, list = FALSE)
+
+# Split the data set into train and test
+df.train <- df[train_index,]
+df.test <- df[-train_index,]
+
+# Fit two models to the simulated data
+# An overfitting fifth degree polynomial model
+polym <- lm(y ~ poly(x, 5), df.train)
+summary(polym)
+
+# A linear model
+lm1 <- lm(y ~ x, df.train)
+summary(lm1)
+
+# Calculate AIC & BIC
+# We can extract the log-likelihood from our model with the stats::logLik function
+logLik(lm1)
+
+# Compute AIC with logLik or use the stats::AIC function
+AIC(lm1)
+2*3 - 2*logLik(lm1) == AIC(lm1)
+
+# Compute BIC with logLik or use the stats::BIC function
+BIC(lm1)
+log(length(df.train$x))*3 - 2*logLik(lm1) == BIC(lm1)
+
+#Now get AIC and BIC for the polynomial model
+AIC(polym)
+BIC(polym)
+
+```
+
+Run CHUNK 8 to calculate RMSE.
+
+```{r}
+#CHUNK 8
+# Use each model to predict the train data set
+df.train$y_poly_pred <- predict(polym, df.train)
+df.train$y_lm_pred <- predict(lm1, df.train)
+
+# Use each model to predict the test data set
+df.test$y_poly_pred <- predict(polym, df.test)
+df.test$y_lm_pred <- predict(lm1, df.test)
+
+RMSE <- function(actual, predicted){
+  return(sqrt(mean((actual - predicted)^2)))
+}
+
+# Calculate Root Mean Squared Error for the train data set
+RMSE(df.train$y, df.train$y_poly_pred)
+RMSE(df.train$y, df.train$y_lm_pred)
+
+# Calculate Root Mean Squared Error for the test (hold-out) data set
+RMSE(df.test$y, df.test$y_poly_pred)
+RMSE(df.test$y, df.test$y_lm_pred)
+
+```

@@ -1,0 +1,375 @@
+---
+title: "Section 6.5 Decision Trees"
+output: html_notebook
+---
+
+Run CHUNK 1 to see some simulated data used in Exercise 6.5.1.
+
+
+```{r}
+#CHUNK 1
+x <- matrix(runif(10000), 5000, 2)
+plot(x, col = ifelse(x[, 1] > .6 & x[, 2] > .5, "red", "black"))
+```
+
+Run CHUNK 2 to make a single linear split where the first component is either less than or greater than or equal to 0.6.  
+  
+```{r}
+#CHUNK 2
+plot(x, col = ifelse(x[, 1] > .6 & x[, 2] > .5, "red", "black"))
+abline(v = .6, col = "blue", lty = 1, lwd = 3)
+```
+  
+Run CHUNK 3 to see the answer to the Knowledge Check
+  
+```{r}
+#CHUNK 3
+plot(x, col = ifelse(x[, 1] > .6 & x[, 2] > .5, "red", "black"))
+abline(v = .6, col = "blue", lty = 1, lwd = 3)
+segments(x0 = .6, y0 = .5, x1 = 1, y1 = .5, col = "blue", lty = 1, lwd = 3)
+```
+
+Run CHUNK 4 to simulate data for the Knowledge Check
+  
+```{r}
+#CHUNK 4
+set.seed(10000)
+x <- matrix(runif(1000, 1, 5), 100, 2)
+plot(x, type = 'p', col = ifelse(x[, 1] > 3 & x[, 2] < 4, "red", (ifelse(x[, 1] <= 3 & x[, 2] < 2, "red", "black"))))
+```
+
+Run CHUNK 5 to see a graphic solution.
+
+```{r}
+#CHUNK 5
+set.seed(10000)
+x <- matrix(runif(1000, 1, 5), 100, 2)
+plot(x, type = 'p', col = ifelse(x[, 1] > 3 & x[, 2] < 4, "red", (ifelse(x[, 1] <= 3 & x[, 2] < 2, "red", "black"))))
+abline(v = 3, col = "blue", lty = 1, lwd = 3)
+segments(x0 = 1, y0 = 2, x1 = 3, y1 = 2, col = "blue", lty = 1, lwd = 3)
+segments(x0 = 3, y0 = 4, x1 = 5, y1 = 4, col = "blue", lty = 1, lwd = 3)
+```  
+
+Run CHUNK 6 to see a new plot for Exercise 6.5.2.
+
+```{r}
+#CHUNK 6
+set.seed(10000)
+x <- matrix(runif(10000), 1000, 2)
+par(mfrow = c (1, 2))
+
+# Plot A
+plot(x, main = "A", type = 'p', col = ifelse(x[, 2] < .1, "red", 
+                                         (ifelse(x[, 1] + rnorm(2, 0, .1) < .7 & x[, 2] < .4, "red", 
+                                              (ifelse(x[, 1] + rnorm(2, 0, .1) < .4 & x[, 2] < .7, "red", 
+                                                   (ifelse(x[, 1] < .1, "red", 
+                                                        (ifelse(round(x[, 2], 2) == 0.6, "red", 
+                                                            (ifelse(round(x[, 1], 2) == 0.8, "red", "black"))))))))))))
+segments(x0 = .1, y0 = 1, x1 = .1, y1 = .7, col = "blue", lty = 1, lwd = 3)
+segments(x0 = .1, y0 = .7, x1 = .4, y1 = .7, col = "blue", lty = 1, lwd = 3)
+segments(x0 = .4, y0 = .7, x1 = .4, y1 = .4, col = "blue", lty = 1, lwd = 3)
+segments(x0 = .4, y0 = .4, x1 = .8, y1 = .4, col = "blue", lty = 1, lwd = 3)
+segments(x0 = .8, y0 = .4, x1 = .8, y1 = .1, col = "blue", lty = 1, lwd = 3)
+segments(x0 = .8, y0 = .1, x1 = 1, y1 = .1, col = "blue", lty = 1, lwd = 3)
+
+# Plot B
+set.seed(10000)
+x <- matrix(runif(10000), 1000, 2)
+plot(x, main = "B", type = 'p', col = ifelse(x[, 2] < .1, "red", 
+                                         (ifelse(x[, 1] + rnorm(2, 0, .1) < .7 & x[, 2] < .4, "red", 
+                                              (ifelse(x[, 1] + rnorm(2, 0, .1) < .4 & x[, 2] < .7, "red", 
+                                                   (ifelse(x[, 1] < .1, "red", 
+                                                        (ifelse(round(x[, 2], 2) == 0.6, "red", 
+                                                            (ifelse(round(x[, 1], 2) == 0.8, "red", "black"))))))))))))
+segments(x0 = .1, y0 = 1, x1 = .1, y1 = .7, col = "blue", lty = 1, lwd = 3)
+segments(x0 = .1, y0 = .7, x1 = .4, y1 = .7, col = "blue", lty = 1, lwd = 3)
+segments(x0 = .4, y0 = .7, x1 = .4, y1 = .6, col = "blue", lty = 1, lwd = 3)
+segments(x0 = .4, y0 = .6, x1 = 1, y1 = .6, col = "blue", lty = 1, lwd = 3)
+segments(x0 = .4, y0 = .58, x1 = 1, y1 = .58, col = "blue", lty = 1, lwd = 3)
+segments(x0 = .4, y0 = .58, x1 = .4, y1 = .4, col = "blue", lty = 1, lwd = 3)
+segments(x0 = .4, y0 = .4, x1 = .8, y1 = .4, col = "blue", lty = 1, lwd = 3)
+segments(x0 = .78, y0 = .4, x1 = .78, y1 = 1, col = "blue", lty = 1, lwd = 3)
+segments(x0 = .8, y0 = 1, x1 = .8, y1 = .1, col = "blue", lty = 1, lwd = 3)
+segments(x0 = .8, y0 = .1, x1 = 1, y1 = .1, col = "blue", lty = 1, lwd = 3)
+```
+
+Run CHUNK 7 to load the Brest Cancer data and ensure it is ready for use.
+
+```{r}
+#CHUNK 7
+library(caret)
+RNGkind(sample.kind = "Rounding")
+# Load data and take a quick look at the summary
+data.all <- read.csv("../BreastCancerWisconsinDataSet.csv")
+summary(data.all)
+
+# Some simple cleaning and set up
+ 
+ # set the target 
+data.all$target [data.all$diagnosis == "M"] = 1
+data.all$target [data.all$diagnosis == "B"] = 0
+
+ # all variables available for training
+data.all <- data.all[, setdiff(colnames(data.all), c("diagnosis", "id", "X"))]
+
+ # split data into training vs validation sets
+set.seed(1000)
+training.indices <- createDataPartition(data.all$target, p = 0.7, list = FALSE)
+data.training <- data.all[training.indices, ] 
+data.validation <- data.all[-training.indices, ]
+
+```
+
+CHUNK 8 provides space to complete Excercise 6.5.3.
+
+```{r}
+#CHUNK 8
+library(rpart)
+library(rpart.plot)
+
+# Fit a decision tree 
+
+# Plot the tree
+```
+
+CHUNK 9 provides a sample solution.
+
+```{r}
+#CHUNK 9
+library(rpart)
+library(rpart.plot)
+
+# Set the formula with all variables
+dt1.f <- as.formula(paste("target~", paste(colnames(data.training)[-31], collapse=" + ")))
+
+# Fit a decision tree and save to dt1, method = 'class' ensures the target is treated as a categorical variable
+dt1 <- rpart(dt1.f, data = data.training, method = 'class',
+             control = rpart.control(minbucket = 5, cp = 0.00001, maxdepth = 5), 
+             parms = list(split = "gini"))
+
+# Plot the tree
+rpart.plot(dt1)
+```
+
+Run CHUNK 10 to look at the print summary:
+
+```{r}
+#CHUNK 10
+print(dt1)
+```
+
+Run CHUNK 11 to look at the complexity parameter.
+  
+```{r}
+#CHUNK 11
+printcp(dt1)
+plotcp(dt1)
+```
+ 
+Run CHUNK 12 to extract the optimal complexity of the tree by taking the one with the minimum xerror:
+```{r}
+#CHUNK 12
+dt1$cptable[which.min(dt1$cptable[, "xerror"]), "CP"]
+```    
+
+Run CHUNK 13 to prune the truee.
+  
+```{r}
+#CHUNK 13
+# prune the tree 
+pdt1<- prune(dt1, cp = dt1$cptable[which.min(dt1$cptable[, "xerror"]), "CP"])
+
+# Plot the tree
+rpart.plot(pdt1)
+```  
+
+Run CHUNK 14 to see how we can use caret to find the optimal values of all of the decision tree parameters
+
+```{r}
+library(caret)
+
+# Set the cross validation parameters for training. Here we are using 4-fold cross validation
+ctrl <- trainControl(method = "cv",
+                     number = 4)
+
+# Set the target as a 2-level factor (caret requires this to be explicit)
+data.training$target <- as.factor(data.training$target)
+
+# Train the model
+dt.caret <- train(dt1.f, # Use the same formula as before
+                  data.training,
+                  method = "rpart",
+                  trControl = ctrl)
+
+plot(dt.caret)
+dt.caret
+
+# We can access the optimal model through $finalModel
+rpart.plot(dt.caret$finalModel)
+```
+
+Run CHUNK 15 to complete an example of a multi-output problem.
+
+```{r}
+#CHUNK 15
+library(rpart)
+library(rpart.plot)
+
+data.mortality <- read.csv("soa_mortality_data.csv")
+
+data.mortality$target <- data.mortality$uwtype
+
+## Split data into training and validation data sets
+training.indices <- createDataPartition(data.mortality$target, p = 0.7, list = FALSE)
+data.training <- data.mortality[training.indices, ] 
+data.validation <- data.mortality[-training.indices, ]
+
+## Part 1: Fit a single multiclass tree
+
+# Create the formula (here we just use an arbitrary subset of the features, in reality you would perform feature selection etc.)
+formula.dt <- as.formula("target ~ smoker + sex + prodcat + region + issage + distchan")
+
+# Set the cross validation parameters
+ctrl <- trainControl(method = "cv",
+                     number = 5)
+
+# Fit the multi-class tree. rpart will automatically fit multi-class because the target variable has more than two values
+dt.multiclass <- train(formula.dt,
+                  data.training,
+                  method = "rpart",
+                  trControl = ctrl)
+
+# Look at summary of the model
+dt.multiclass
+dt.multiclass$finalModel
+
+# plot the tree 
+rpart.plot(dt.multiclass$finalModel)
+
+## Test the tree on the validation set
+
+# Look probabilities of being each class
+preds.multiclass.prob<- predict(dt.multiclass, newdata = data.validation, type = "prob")
+summary(preds.multiclass.prob)
+
+# Look instead at actual assigned UW type (class corresponding to max of all class probabilities for an observation)
+preds.multiclass <- predict(dt.multiclass, newdata = data.validation, type = "raw")
+summary(preds.multiclass)
+
+# We can get an initial idea of how the tree is doing by comparing the distributions of predicted and actual
+# This is a quick sense check to make sure it isn't doing something unexpected
+summary(data.validation$uwtype)
+
+# Calculate classification accuracy 
+accuracy.multiclass <- sum(preds.multiclass == data.validation$uwtype) / nrow(data.validation)
+accuracy.multiclass
+
+# Look at a table of actual vs predicted (diagonal are correct predictions)
+table(data.validation$uwtype, preds.multiclass)
+
+## Exercise 2: Fit multiple binary trees
+
+# Set up an object to store all of the trees and their predictions
+trees.binary <- list()
+preds.binary.raw <- data.frame(row.names = 1:nrow(data.validation))
+
+# Do a for loop to run through each of the UW types (note this may take a while)
+for (type in levels(data.mortality$uwtype)) {
+  
+  # Set the target
+  data.training$target <- as.factor((data.training$uwtype == type))
+  data.validation$target <- as.factor((data.validation$uwtype == type))
+  
+  # We will use the same parameters set up in the previous exercise
+  
+  # Fit the tree
+  dt.binary <- train(formula.dt,
+                     data.training,
+                     method = "rpart",
+                     trControl = ctrl)
+  
+  # Store the model (for inspection later)
+  trees.binary[[type]] <- dt.binary
+  
+  # Get the predictions on the validation set (we only want the probability of true)
+  preds.binary.raw[,type] <- predict(dt.binary, newdata = data.validation, type = "prob")[,"TRUE"]
+}
+
+# Inspect one of the trees:
+rpart.plot(trees.binary[["NO"]]$finalModel)
+
+# Calculate the prediction of all binary trees in combination by taking the maximal probability
+preds.binary <- factor(colnames(preds.binary.raw)[apply(preds.binary.raw, MARGIN = 1, FUN = which.max)], levels = levels(data.validation$uwtype))
+summary(preds.binary)
+
+# Calculate the accuracy of the binary tree approach
+accuracy.binary <- sum(preds.binary == data.validation$uwtype) / nrow(data.validation)
+accuracy.binary
+
+# SHow the prediction table
+table(data.validation$uwtype, preds.binary)
+
+# The results are too close to call. 
+# Ultimately it depends on the data and its structure as to which is the "better" method - 
+# we save a considerable amount of time going down the multiclass approach however, and due to its ability to capture output value correlations, where possible, multiclass is usually preferred.
+
+
+
+```
+
+Run CHUNK 16 to load the AutoClaim data and prepare training and validation sets. The cplm library is used here only to get the data, we won't be using its capabilities at this time.
+ 
+```{r}
+#CHUNK 16
+library(cplm)
+RNGkind(sample.kind = "Rounding")
+set.seed(1000)
+
+# Filter to CLM_AMT5 > 0 -> this is our target
+# CLM_AMT5 is the total claim amount in the past 5 years
+AutoClaim <- cplm::AutoClaim
+AutoClaim <- AutoClaim[which(AutoClaim$CLM_AMT5 > 0), ]
+
+# Split data to training and validation
+training.indices <- createDataPartition(AutoClaim$CLM_AMT5, p = 0.7, list = FALSE)
+AutoClaim.training <- AutoClaim[training.indices, ] 
+AutoClaim.validation <- AutoClaim[-training.indices, ]
+
+summary(AutoClaim)
+```
+
+Run CHUNK 17 to make a tree using all the predictors. Note the various parameter settings.
+
+```{r}
+#CHUNK 17
+
+# Set the formula with all variables (we won't want to train on CLM_FREQS)
+vars <- setdiff(colnames(AutoClaim.training),c("POLICYNO", "PLCYDATE", "CLM_FREQ5", "CLM_AMT"))
+dt2.f <- as.formula(paste("CLM_AMT5 ~", paste(vars[-1], collapse=" + ")))
+
+
+# Fit a simple tree
+dt2 <- rpart(dt2.f, data = AutoClaim.training, method = 'anova', 
+             control = rpart.control(minbucket = 10, cp = 0, maxdepth = 10), 
+             parms = list(split = "information"))
+
+```
+
+Run CHUNK 18 to get a summary.
+
+```{r}
+#CHUNK 18
+summary(dt2)
+```
+
+Run CHUNK 19 to prune the tree.
+
+```{r}
+#CHUNK 19
+pdt2 <- prune(dt2, cp = dt2$cptable[which.min(dt2$cptable[, "xerror"]), "CP"])
+print(pdt2)
+summary(pdt2)
+#rpart.plot(pdt2)
+```
+
+

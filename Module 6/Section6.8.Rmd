@@ -1,0 +1,47 @@
+---
+title: "Section 6.8 Instance-based Learning and K Nearest Neighbors"
+output: html_notebook
+---
+
+Run CHUNK 1 to create some illustrative data points.
+
+```{r echo = FALSE}
+#CHUNK 1
+library(ggplot2)
+set.seed(700)
+df <- data.frame(Feature1 = runif(20), Feature2 = runif(20), Lapse = sample(c("Yes","No"),size = 20, replace = TRUE, prob = c(0.3,0.7)))
+df$Lapse <- as.character(df$Lapse)
+df1 <- rbind(df,c(0.2,0.2,"?"))
+
+ggplot(data = df1, aes(x = Feature1, y = Feature2, color = Lapse)) + geom_point(size = 4) + theme(axis.text = element_blank())
+```
+
+Run CHUNK 2 to set up some sample data and make predictions using six different values of k.
+
+```{r}
+#CHUNK 2
+# Example showing variance vs bias for KNN regression
+
+library(FNN)
+
+# Set up the sample data
+set.seed(100)
+x <- c(1:100)
+df <- data.frame(x = x, y = log(x) + rnorm(100, 0, 0.5))
+
+# Look at a series of KNN regressions using different values of k
+df$k1 <- knn.reg(df$x, y = df$y, k = 1)$pred
+df$k3 <- knn.reg(df$x, y = df$y, k = 3)$pred
+df$k5 <- knn.reg(df$x, y = df$y, k = 5)$pred
+df$k10 <- knn.reg(df$x, y = df$y, k = 10)$pred
+df$k25 <- knn.reg(df$x, y = df$y, k = 25)$pred
+df$k50 <- knn.reg(df$x, y = df$y, k = 50)$pred
+
+ggplot(data = df, aes(x = x)) + geom_point(aes(y = y)) + geom_line(aes(y=k1)) +ggtitle("KNN Regression with k=1")
+ggplot(data = df, aes(x = x)) + geom_point(aes(y = y)) + geom_line(aes(y=k3)) +ggtitle("KNN Regression with k=3")
+ggplot(data = df, aes(x = x)) + geom_point(aes(y = y)) + geom_line(aes(y=k5)) +ggtitle("KNN Regression with k=5")
+ggplot(data = df, aes(x = x)) + geom_point(aes(y = y)) + geom_line(aes(y=k10)) +ggtitle("KNN Regression with k=10")
+ggplot(data = df, aes(x = x)) + geom_point(aes(y = y)) + geom_line(aes(y=k25)) +ggtitle("KNN Regression with k=25")
+ggplot(data = df, aes(x = x)) + geom_point(aes(y = y)) + geom_line(aes(y=k50)) +ggtitle("KNN Regression with k=50")
+```
+

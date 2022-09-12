@@ -1,0 +1,604 @@
+---
+title: "Section 6.7 Supervised Learning: Ensemble Methods"
+output: html_notebook
+---
+Run CHUNK 1 to see an expample of an ensemble approach. We have seen this one before. The true model is a sine function, but we don't know that. So we try polynomials of up to degree nine.
+
+```{r echo = FALSE}
+library(glmnet)
+library(ggplot2)
+library(gridExtra)
+
+set.seed(1000)
+x <- seq(1,10,0.1)
+df <- data.frame(x = x, y = sin(x) + rnorm(91,0,0.25), fO = sin(x))
+
+# Set up the features
+df$X1 <- df$x
+df$X2 <- df$x^2
+df$X3 <- df$x^3
+df$X4 <- df$x^4
+df$X5 <- df$x^5
+df$X6 <- df$x^6
+df$X7 <- df$x^7
+df$X8 <- df$x^8
+df$X9 <- df$x^9
+
+# set up the formula
+f <- as.formula("y~X1+X2+X3+X4+X5+X6+X7+X8+X9")
+
+set.seed(293)
+
+# For loop to fit the models
+for (i in c(1:10)) {
+  rows <- sample.int(nrow(df), size = 25)
+  
+  m1 <- lm(f, data = df[rows,])
+  
+  df[, paste("predict",i,sep = "")] <- predict(m1, newdata = df)
+}
+
+# For loop to plot the models
+p1 <- ggplot(data = df, aes(x = x)) + 
+        geom_line(aes(y = df$predict1)) +
+        geom_line(aes(y = df$predict2)) +
+        geom_line(aes(y = df$predict3)) +
+        geom_line(aes(y = df$predict4)) +
+        geom_line(aes(y = df$predict5)) +
+        geom_line(aes(y = df$predict6)) +
+        geom_line(aes(y = df$predict7)) +
+        geom_line(aes(y = df$predict8)) +
+        geom_line(aes(y = df$predict9)) +
+        geom_line(aes(y = df$predict10)) +
+        scale_y_continuous(limits = c(-2.5,2.5)) +
+        ggtitle("Individual models")
+
+df$average <- rowMeans(df[,c(13:22)])
+p2 <- ggplot(data = df, aes(x = x)) + 
+        geom_line(aes(y = fO), color = "blue") +
+        geom_line(aes(y = average), color = "red") +
+        scale_y_continuous(limits = c(-2,2)) +
+        annotate("text", x = 2, y = 1.2, label = "True process", color = "blue") +
+        annotate("text", x = 2, y = -0.1, label = "Avg model", color = "red") +
+        ggtitle("Average Model")
+
+  
+grid.arrange(p1,p2,ncol = 2)
+```
+
+Run CHUNK 2 to load the required package.
+
+```{r}
+#CHUNK 2
+library(randomForest)
+library(caret)
+```
+
+Run CHUNK 3 to load and prepare the data.
+
+```{r}
+#CHUNK 3
+# Import the data
+data.mortality <- read.csv("soa_mortality_data.csv", stringsAsFactors = TRUE)
+
+# Set the target
+data.mortality$target[data.mortality$actual_cnt == 0] = 0
+data.mortality$target[data.mortality$actual_cnt >= 1] = 1
+data.mortality$target <- as.factor(data.mortality$target) # This is to force the Random Forest to recognize a classification problem
+
+# Set the variables we want to use for training
+vars <- c("prodcat",
+          "issstate",
+          "distchan",
+          "smoker",
+          "sex",
+          "issage",
+          "uwkey"
+)
+data.mortality <- data.mortality[,c("target",vars)]
+
+
+# Split data into training and testing
+set.seed(21)
+training.indices <- createDataPartition(data.mortality$target, p = 0.7, list = FALSE)
+data.training <- data.mortality[training.indices, ] 
+data.testing <- data.mortality[-training.indices, ]
+
+# Check the distributions to make sure there aren't any severe imbalances
+summary(data.training)
+summary(data.testing)
+```
+
+Run CHUNK 4 to set up the formula.
+
+```{r}
+#CHUNK 4
+formula.rf <- as.formula(paste("target~",paste(vars, collapse = "+")))
+```
+
+Run CHUNK 5 to train the model.
+
+```{r}
+#CHUNK 5
+# Train the model
+model.rf <- randomForest(formula = formula.rf, 
+                         data = data.training,
+                         ntree = 30,
+                         mtry = 3, # The number of features to use in each tree
+                         sampsize = floor(0.6 * nrow(data.training)), # The number of observations to use in each tree
+                         nodesize = 100, # The minimum number of observations in each leaf node of a tree - this controls complexity
+                         importance = TRUE
+                         )
+```
+
+Run CHUNK 6 to get the predictions and validate the model.
+
+```{r}
+#CHUNK 6
+library(pROC)
+# Get the predictions
+predictions <- predict(model.rf, data.testing)
+
+# Evaluate performance
+auc(as.numeric(data.testing$target), as.numeric(predictions))
+```
+
+Run CHUNK 7 to look at the predictions
+
+```{r}
+#CHUNK 7
+summary(predictions)
+```
+
+Run CHUNK 8 to look at the target variable
+
+```{r}
+#CHUNK 8
+summary(data.mortality$target)
+```
+
+Run CHUNK 9 to create a more balanced training set using undersampling.
+
+```{r}
+#CHUNK 9
+data.training.us <- rbind(data.training[data.training$target == 1,], # Keep all of the non-death observations
+                          data.training[data.training$target == 0,][sample.int(nrow(data.training[data.training$target == 0,]),
+                                                                               size = nrow(data.training[data.training$target == 1,])),]) # Take a sample of the non-death observations with the same size as the number of death observations
+
+summary(data.training.us)
+```
+
+Run CHUNK 10 to re-do the model on this new set and examine the predictions.
+
+```{r}
+#CHUNK 10
+model.rf <- randomForest(formula = formula.rf, 
+                         data = data.training.us,
+                         ntree = 50,
+                         importance = TRUE
+                         )
+
+predictions <- predict(model.rf, data.testing) # Note that we are still using the original test data. Why don't we need to undersample the test data?
+summary(predictions)
+```
+
+Run CHUNK 11 to evaluate the performance.
+
+```{r}
+#CHUNK 11
+# Evaluate performance
+auc(as.numeric(data.testing$target), as.numeric(predictions))
+```
+
+Run CHUNK 12 to use oversampling.
+
+```{r}
+#CHUNK 12
+# Oversample
+indices <- c(1:nrow(data.training), # Keep all of the original training data
+             rep(which(data.training$target == 1), 50)) # Get duplicates of the death observations (we have chosen 50 to roughly balance the classes)
+data.training.os <- data.training[indices,]
+
+# Train model
+model.rf <- randomForest(formula = formula.rf, 
+                         data = data.training.os,
+                         ntree = 20,
+                         importance = TRUE
+                         )
+
+predictions <- predict(model.rf, data.testing) 
+summary(predictions)
+
+# Evaluate performance
+auc(as.numeric(data.testing$target), as.numeric(predictions))
+```
+
+
+Run CHUNK 13 to re-establish training and testing sets.
+
+```{r}
+#CHUNK 13
+library(caret)
+set.seed(35)
+training.indices <- createDataPartition(data.mortality$target, p = 0.7, list = FALSE)
+data.training <- data.mortality[training.indices, ] 
+data.testing <- data.mortality[-training.indices, ]
+
+
+summary(data.training)
+summary(data.testing)
+```
+
+
+Run CHUNK 14 to set the grid.
+
+```{r}
+#CHUNK 14
+rfGrid <- expand.grid(mtry = c(1,3,5,7)) # The minimum node size for the decision tree (complexity)
+```
+
+Run CHUNK 15 to set the controls.
+
+```{r}
+#CHUNK 15
+ctrl <- trainControl(method = "repeatedcv", 
+                     number = 5, 
+                     repeats = 3,# We want to do 5-fold cross validation (repeated 3 times for robustness)
+                     sampling = "down") # This is undersampling - other methods include "up" (oversampling), "SMOTE" and "ROSE" (hybrid methods)
+```
+
+Run CHUNK 16 to train the model. This might take a while.
+
+```{r}
+#CHUNK 16
+model.rf.tuned <- train(target ~.,
+                        data = data.training,
+                        method = "rf", # This is so we use the randomForest algorithm
+                        trControl = ctrl,
+                        tuneGrid = rfGrid,
+                        # We can specify the other parameters for the randomForest model here if we wish to. If we don't they will take on their default values
+                        ntree = 25, # The default is 500, setting to 50 will save us a lot of computation time
+                        importance = TRUE
+                        )
+```
+
+Run CHUNK 17 to view the output.
+
+```{r}
+#CHUNK 17
+model.rf.tuned
+ggplot(model.rf.tuned)
+```
+
+Run CHUNK 18 to make predictions using the final model.
+
+```{r}
+#CHUNK 18
+predictions <- predict(model.rf.tuned, newdata = data.testing) 
+
+# Evaluate performance
+auc(as.numeric(data.testing$target), as.numeric(predictions))
+```
+
+Run CHUNK 19 to evaluate feature importance from the previously developed model.
+
+```{r}
+#CHUNK 19
+library(ggplot2)
+library(gridExtra)
+# Some manipulation is necessary in order to plot the importance results nicely
+
+imp <- as.data.frame(model.rf.tuned$finalModel$importance) # This is the code to use to plot the variable importance from the randomForest model directly (as opposed to the caret output)
+
+imp$Feature <- rownames(imp)
+
+# To make the output more readable
+imp.MDA.20 <- imp[order(imp$MeanDecreaseAccuracy, decreasing = TRUE),][c(1:20),]
+imp.MDG.20 <- imp[order(imp$MeanDecreaseGini, decreasing = TRUE),][c(1:20),]
+
+
+p1 <- ggplot(imp.MDA.20, aes(x=reorder(Feature, MeanDecreaseAccuracy), y=MeanDecreaseAccuracy)) +
+        geom_bar(stat='identity') +
+        coord_flip()
+p2 <- ggplot(imp.MDG.20, aes(x=reorder(Feature, MeanDecreaseGini), y=MeanDecreaseGini)) +
+        geom_bar(stat='identity') +
+        coord_flip() 
+grid.arrange(p1,p2, ncol = 2)
+```
+
+Run CHUNK 20 to use caret's feature importance function.
+
+```{r}
+#CHUNK 20
+imp <- varImp(model.rf.tuned)
+plot(imp, top = 20) # top = 20 makes the results more readable
+```
+
+Run CHUNK 21 to create a partial dependence plot for the variable "issage."
+
+```{r}
+#CHUNK 21
+library(pdp)
+
+partial(model.rf.tuned, train = data.training,  pred.var = "issage", plot= TRUE, rug = TRUE, smooth = TRUE)
+```
+
+Run CHUNK 22 to simulate data for a boosting example.
+
+```{r echo = FALSE}
+#CHUNK 22
+library(ggplot2)
+set.seed(234)
+x <- runif(100,0,10)
+y <- ifelse(x<5,2*x, 9+exp(x-5)) + rnorm(100, 0, 5)
+
+df <- data.frame(x = x, y = y)
+
+p1 <- ggplot(data = df, aes(x = x, y=y)) + geom_point()
+p1
+```
+
+Run CHUNK 23 to fit a model using two straight lines
+
+```{r echo = FALSE}
+#CHUNK 23
+y0 <- 0 #trial value of model at 0
+knot <- 5 #trial value of knot
+yk <- 10 #trial value of model at the knot
+y10 <- 160 #trial value of model at 10
+#create a function that calculates values from the model from a vector of inputs
+model.val <- function(x,y0,knot,yk,y10)
+{
+  mv <- ifelse(x<knot,(yk-y0)*x/knot + y0, ((y10-yk)*x+10*yk-knot*y10)/(10-knot))
+  return(mv)
+}
+#create a function that calculuates the sum of squared errors using the model
+sse <- function(params)
+{
+  model <- model.val(df$x,params[1],params[2],params[3],params[4])
+  sum.of.squares <- sum((df$y-model)^2)
+  return(sum.of.squares)
+}
+params <- c(y0,knot,yk,y10) #set the initial parameters
+opt <- optim(params,sse) #minimize sse
+z <- model.val(df$x,opt$par[1],opt$par[2],opt$par[3],opt$par[4]) #get the predicted line
+df$z <- z #add it to the dataframe
+p2 <- p1 + geom_line(aes(y=df$z)) #add the fitted line to the plot
+p2
+```
+
+Run CHUNK 24 to plot the residuals
+
+```{r}
+#CHUNK 24
+df$resid <- df$y - df$z
+ggplot(data = df, aes(x = x, y=resid)) + geom_point()
+```
+
+Run CHUNK 25 to fit a similar line to the residuals.
+
+```{r echo = FALSE}
+#CHUNK 25
+sse2 <- function(params) #same function, but uses the residuals, not y
+{
+  model <- model.val(df$x,params[1],params[2],params[3],params[4])
+  sum.of.squares <- sum((df$resid-model)^2)
+  return(sum.of.squares)
+}
+params <- c(-5,8,0,20) #set the initial parameters
+opt <- optim(params,sse2) #minimize sse2
+z2 <- model.val(df$x,opt$par[1],opt$par[2],opt$par[3],opt$par[4]) #get the predicted line
+df$z2 <- z2+df$z #add it to the dataframe by adding it to the previous fitted value
+p3 <- p2 + geom_line(aes(y=df$z2, color="red")) #add the fitted line to the plot
+p3
+```
+
+Run CHUNK 26 to load the xgboost package
+
+```{r}
+#CHUNK 26
+library(xgboost)
+```
+
+Run CHUNK 27 to load and set up the data, as we've done several times before with this dataset. It also sets up some special structures needed for xgboost.
+
+```{r}
+#CHUNK 27
+# Import the data
+data.mortality <- read.csv("soa_mortality_data.csv", stringsAsFactors = TRUE)
+
+# Set the target
+data.mortality$target[data.mortality$actual_cnt == 0] <- 0
+data.mortality$target[data.mortality$actual_cnt >= 1] <- 1
+
+# Set the variables we want to use for training
+vars <- c("prodcat",
+          "issstate",
+          "distchan",
+          "smoker",
+          "sex",
+          "issage",
+          "uwkey")
+data.mortality <- data.mortality[,c("target",vars)]
+
+
+# Split data into training and testing
+set.seed(21)
+training.indices <- createDataPartition(data.mortality$target, p = 0.7, list = FALSE)
+data.training <- data.mortality[training.indices, ] 
+data.testing <- data.mortality[-training.indices, ]
+
+# Check the distributions to make sure there arent any severe imbalances
+summary(data.training)
+summary(data.testing)
+
+# xgboost requires some specific data structures as input
+# A model frame contains a formula and our data frame columns
+data.training.mf  <- model.frame(as.formula(paste("~",paste(vars,collapse = "+"))),data = head(data.training))
+# A model (or design) matrix only contains numerical values. Factors are dummy coded by default
+data.training.mm  <- model.matrix(attr(data.training.mf,"terms"),data = data.training)
+# A XGB dense matrix contains an R matrix and metadata [optional]
+data.training.dm  <- xgb.DMatrix(data.training.mm,label = data.training$target, missing = -1)
+
+data.testing.mf  <- model.frame(as.formula(paste("~",paste(vars,collapse = "+"))),data = head(data.testing))
+data.testing.mm  <- model.matrix(attr(data.testing.mf,"terms"),data = data.testing)
+data.testing.dm  <- xgb.DMatrix(data.testing.mm,label = data.testing$target, missing = -1)
+
+```
+
+Run CHUNK 28 to set up the parameters.
+
+```{r}
+#CHUNK 28
+## Set parameters
+par  <-  list("booster" = "gbtree", # We are using a decision tree - alternatively we could use a GLM (gblinear)
+              "objective" = "binary:logistic", # The output here is a probability 
+              "eval_metric" = "auc",   
+              "eta" = 0.1, # Learning rate
+              "subsample" = 0.6, # Proportion of observations
+              "colsample_bytree" = 0.6, # Proportion of features
+              "max_depth" = 2) # Depth of the decision tree (usually we only need to specify one of the decision tree parameters to control its complexity)
+```
+
+Run CHUNK 29 to train the model. This may take a while. The program prints its status every 25 rounds so you can see progress. It wil take about 800 rounds with the parameters that have been set.
+
+```{r}
+#CHUNK 29
+model.xgb.cv <- xgb.cv(params = par,
+                       data = data.training.dm,
+                       nrounds = 10000, # The number or trees/iterations
+                       prediction = FALSE, # Controls whether we store the predictions of each tree (can be memory intensive and is not necessary)
+                       print_every_n = 25, # How often we print the output of the model
+                       early_stopping_rounds = 30, # How many consecutive rounds in which we observe no improvement before stopping
+                       maximize = TRUE, # Whether our evaluation metric should be maximized or minimized (AUC -> maximize)
+                       nfold = 5) # The number of cross validation folds to use
+```
+
+Run CHUNK 30 to train the final model using the optimal number of iterations:
+
+```{r}
+#CHUNK 30
+model.xgb <- xgb.train(params = par,
+                       data = data.training.dm,
+                       nrounds = model.xgb.cv$best_iteration, # The number or trees/iterations
+                       prediction = FALSE)
+```
+
+Run CHUNK 31 to evaluate the model against the testing set.
+
+```{r}
+#CHUNK 31
+predictions <- predict(model.xgb, data.testing.dm)
+
+library(pROC)
+
+auc(data.testing$target, predictions)
+```
+
+Run CHUNK 32 to set up the data for parameter tuning.
+
+```{r}
+#CHUNK 32
+# Import the data
+data.mortality <- read.csv("soa_mortality_data.csv", stringsAsFactors = TRUE)
+
+# Set the target
+data.mortality$target[data.mortality$actual_cnt == 0] = "N" # We need to use characters here because of limitations in the caret implementation of xgboost tuning
+data.mortality$target[data.mortality$actual_cnt >= 1] = "C"
+data.mortality$target <- as.factor(data.mortality$target)
+
+# Set the variables we want to use for training
+vars <- c("prodcat",
+          "issstate",
+          "distchan",
+          "smoker",
+          "sex",
+          "issage",
+          "uwkey")
+data.mortality <- data.mortality[,c("target",vars)]
+
+
+# Split data into training and testing
+set.seed(35)
+training.indices <- createDataPartition(data.mortality$target, p = 0.7, list = FALSE)
+data.training <- data.mortality[training.indices, ] 
+data.testing <- data.mortality[-training.indices, ]
+
+# Check the distributions to make sure there aren't any severe imbalances
+summary(data.training)
+summary(data.testing)
+```
+
+Run CHUNK 33 to load the caret package and set up the grid.
+
+```{r}
+#CHUNK 33
+library(caret)
+
+xgbGrid <- expand.grid(max_depth = c(1,3,7),
+                      nrounds = 700,
+                      eta = c(0.01, 0.1),
+                      colsample_bytree = c(0.6, 0.9),
+                      gamma = 0,
+                      min_child_weight = 1,
+                      subsample = 0.6
+                      ) 
+
+xgbGrid
+```
+
+Run CHUNK 34 to set up the control parameters and train the model. Note we are using downsampling here. In general GBM performance should improve 
+with the use of over/under-sampling in the presence of balanced classes although here the choice is primarily driven by computation time. As an exercise,
+try using multiple different sampling techniques to see which results in better performance.
+
+```{r}
+#CHUNK 34
+ctrl <- trainControl(method = "cv", number = 2, # In the interest of computation time, we will do 2-fold cross validation
+                     summaryFunction = twoClassSummary,
+                     classProbs = TRUE,
+                     sampling = "down" 
+                     ) 
+
+model.xgb.tuned <- train(target ~.,
+                        data = data.training,
+                        method = "xgbTree", # This is so we use the xgboost algorithm
+                        trControl = ctrl,
+                        tuneGrid = xgbGrid
+                        )
+
+# Check the output
+model.xgb.tuned
+ggplot(model.xgb.tuned)
+
+```
+
+Run CHUNK 35 to evaluate the model
+
+```{r}
+#CHUNK 35
+library(pROC)
+# Calculate AUC of final model
+predictions <- predict(model.xgb.tuned, data.testing)
+plot(roc(as.numeric(data.testing$target), as.numeric(predictions)))
+auc(as.numeric(data.testing$target), as.numeric(predictions))
+```
+
+Run CHUNK 37 to see a plot of variable importance.
+
+```{r}
+#CHUNK 37
+imp <- xgb.importance(model = model.xgb.tuned$finalModel)
+xgb.ggplot.importance(imp)
+# View the top 10 features
+imp[1:10, ]
+```
+
+Run CHUNK 38 to make a partial dependence plot.
+
+```{r}
+#CHUNK 38
+library(pdp)
+
+partial(model.xgb.tuned, train = data.training,  pred.var = "issage", plot= TRUE, rug = TRUE, smooth = TRUE)
+```
+

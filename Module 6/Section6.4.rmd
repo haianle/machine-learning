@@ -1,0 +1,136 @@
+---
+title: "Section 6.4 Advanced Concepts in Model Validation"
+output: html_notebook
+---
+
+Run CHUNK 1 to prepare the Brest Cancer data for cross-validation.
+
+```{r echo = FALSE}
+#CHUNK 1
+# Load data 
+RNGkind(sample.kind = "Rounding") 
+data.all <- read.csv("../BreastCancerWisconsinDataSet.csv")
+
+# Some simple cleasing and set up
+ 
+ # set the target 
+data.all$target [data.all$diagnosis == "M"] = 1
+data.all$target [data.all$diagnosis == "B"] = 0
+
+ # all variables available for training
+data.all <- data.all[c(-1, -2, -33)]
+
+
+ # split data into training vs validation sets
+set.seed(1000)
+data.all$rand <- runif(nrow(data.all))
+data.training <- data.all[which(data.all$rand < 0.7), ] 
+data.validation <- data.all[which(data.all$rand >= 0.7), ]
+data.all$rand <- NULL
+data.training$rand <- NULL
+
+
+```
+
+Run CHUNK 2 to perform the corss-validation.
+
+```{r}
+#CHUNK 2
+library(glmnet)
+# Fit a logistic regression model using ridge regression
+f <- as.formula(paste("target~", paste(colnames(data.all)[-31], collapse = "+")))
+X <- model.matrix(f,data.training)
+
+m <- cv.glmnet(x = X, 
+            y = data.training$target,
+            family = "binomial",
+            alpha = 1,
+            type.measure = "class")
+
+```
+
+Run CHUNK 3 to make a plot that relates to the output from running the cross-validation.
+
+```{r}
+#CHUNK 3
+plot(m)
+```
+
+Run CHUNK 4 for an application of cross-validation using the carat package.
+
+```{r}
+#CHUNK 4
+require("insuranceData")
+require("caret")
+require("randomForest") # need to call important() function at the end
+
+# Bring the AutoBi data into our environment
+data(AutoBi)
+
+# Only use complete cases (exclude NAs)
+AutoBi <- AutoBi[complete.cases(AutoBi),]
+
+# Use the caret::createDataPartition to create train and test indices
+train_index <- createDataPartition(AutoBi$LOSS, times = 1, p = 0.6, list = FALSE)
+
+# Split the data sets and Count the training and test rows
+data.train = AutoBi[train_index,]
+data.test = AutoBi[-train_index,]
+
+# Count the rows in each split
+nrow(data.train) # ~600
+nrow(data.test) # ~400
+nrow(data.train)/(nrow(data.train) + nrow(data.test)) # ~60%
+
+# Setup 10-fold CV using caret
+fitControl <- trainControl(## 10-fold CV
+  method = "cv", # alternatively could be "boot" for bootstrapping
+  number = 10
+  )
+
+set.seed(825)
+
+# Perform a glm fit with 10-fold CV
+glmFit1 <- train(LOSS ~ c(ATTORNEY) + CLMSEX + c(MARITAL) + c(CLMINSUR) + SEATBELT + CLMAGE
+                 ,data = data.train
+                 ,method = "glm"
+                 ,trControl = fitControl
+                 )
+glmFit1
+summary(glmFit1)
+
+# The caret package makes it easy to tune model parameters
+tunegrid <- expand.grid(mtry=c(1:5))
+set.seed(1)
+control <- trainControl(method="cv", number=10, repeats=3)
+
+# Fitting random forest models using 10-folds cross-validation
+# includes tuning the number of features tried at each split (mtry)
+rf.Fit1 <- train(LOSS ~ c(ATTORNEY) + CLMSEX + c(MARITAL) + + SEATBELT + CLMAGE
+                 ,data = data.train
+                 ,method = "rf"
+                 ,tuneGrid = tunegrid
+                 ,trControl = control
+                 )
+
+# caret trains the models and selects the best mtry value based on minimizing RMSE
+rf.Fit1
+rf.Fit1$results
+
+# Plot the impact of increased complexity (ie increasing mtry on RMSE)
+plot(rf.Fit1)
+
+# caret saves the best model
+rf.Fit1$finalModel
+
+# Printing the importance of each feature
+importance(rf.Fit1$finalModel)
+varImp(rf.Fit1$finalModel)
+```
+```{r}
+df <- data.test
+
+df$pred <- predict(rf.Fit1, newdata = df[c(-1,-5,-8)])
+mean((df$pred - df$LOSS)^2)^(1/2)
+```
+

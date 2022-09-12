@@ -1,0 +1,676 @@
+---
+title: "Section 6.6 Generalized Linear Models"
+output: html_notebook
+---
+
+Run CHUNK 1 to load some pacakges.
+
+```{r setup, echo = FALSE, warning = FALSE, message = FALSE}
+#CHUNK 1
+library(ggplot2)
+library(gridExtra)
+library(data.table)
+library(dplyr)
+```
+
+Run CHUNK 2 to load and plot the Galton data.
+
+```{r Answer - galton plot}
+#CHUNK 2
+library(UsingR)
+set.seed(1000)
+
+data(galton)
+ggplot(galton, aes(x = jitter(parent, 5), y = jitter(child, 5))) +
+  geom_point() +
+  labs(x = "Parents' Height", y = "Child's Height")
+```
+
+Run CHUNK 3 to plot the regression line.
+
+```{r}
+#CHUNK 3
+set.seed(1000)
+ggplot(galton, aes(x = jitter(parent, 5), y = jitter(child, 5))) +
+  geom_point() +
+  labs(x = "Parents' Height", y = "Child's Height") +
+  stat_smooth(method="lm", col = "red")
+
+```
+
+Run CHUNK 4 to formally fit the line.
+
+```{r model_summary}
+#CHUNK 4
+lm_galton <- lm(child ~ parent, data = galton)
+summary(lm_galton)
+```
+  
+Use CHUNK 5 to work on Exercise 6.6.1
+
+```{r Answer 6.7.1}
+#CHUNK 5
+b0 <- coef   #use the coef() function to extract the two coefficients
+b1 <- coef
+x <- 68
+
+# Manual calculation of child height
+yhat <- b0 + b1*x
+print(yhat)
+
+# Using predict function
+yhat2 <- predict(lm_galton, newdata = data.frame(parent) )
+print(yhat2)
+```
+
+CHUNK 6 has a solution.
+
+```{r}
+#CHUNK 6
+b0 <- coef(lm_galton)[1]
+b1 <- coef(lm_galton)[2]
+x <- 68
+
+# Manual calculation of child height
+yhat <- b0 + b1*x
+print(yhat)
+
+# Using predict function
+yhat2 <- predict(lm_galton, newdata = data.frame(parent = 68))
+print(yhat2)
+```
+
+Run CHUNK 7 to load and set up the auto claim dataset.
+
+```{r}
+#CHUNK 7
+library(cplm)
+
+data(AutoClaim)
+
+# We will only use GENDER, AGE, BLUEBOOK, and CLM_AMT for demonstration
+AutoClaim_sub <- subset(AutoClaim, select = c('GENDER','AGE','BLUEBOOK','CLM_AMT'))
+# Create age bands and then remove age
+AutoClaim_sub$AGE_BAND <- cut(x = AutoClaim_sub$AGE, breaks = c(0,25,35,45,55,65,85))
+AutoClaim_sub$AGE <- NULL
+# Select only cases where CLM_AMT is positive
+AutoClaim_sub <- AutoClaim_sub %>% 
+                 filter(CLM_AMT > 0) 
+
+head(AutoClaim_sub)
+```
+
+Run CHUNK 8 to set up and view part of the model matrix.
+
+```{r}
+MM <- model.matrix(CLM_AMT ~ GENDER + AGE_BAND + BLUEBOOK, data = AutoClaim_sub)
+MM[1:6,]
+```
+
+Use CHUNK 9 to obtain the parameter estimates by matrix algebra.
+
+
+```{r}
+#CHUNK 9
+
+```
+
+Run CHUNK 10 to obtain the least squares estimates.
+
+```{r lm_model}
+linear.model <- lm(CLM_AMT ~ GENDER + AGE_BAND + BLUEBOOK, data = AutoClaim_sub)
+linear.model
+```
+
+
+Run CHUNK 11 to see a visualization of the difference how conditional normal distributions does not imply an aggregate normal distribution.
+
+```{r warning=FALSE, message=FALSE}
+#CHUNK 11
+set.seed(42)
+
+f <- rnorm(n = 500, mean = 1500, sd = 400)
+m <- rnorm(n = 500, mean = 3000, sd = 400)
+gend <- data.frame(CLM_AMT = f, GENDER = 'F')
+gend <- rbind(gend, data.frame(CLM_AMT = m, GENDER = 'M'))
+
+p1 <- ggplot(gend, aes(x=CLM_AMT)) + 
+        geom_freqpoly(position="identity", col = 'black') + 
+        ggtitle(label = "Overall distribution of CLM_AMT")
+
+p2 <- ggplot(gend, aes(x=CLM_AMT, fill=GENDER)) + 
+        geom_freqpoly(position="identity", col = 'black') + 
+        ggtitle(label = "CLM_AMT distribution by GENDER")
+
+grid.arrange(p1, p2, ncol = 2)
+```
+
+Use CHUNK 12 to test the assumptions of ordinary least squares for Exercise 6.6.3.
+
+```{r}
+#CHUNK 12
+library(ggplot2)
+#load your dataset, if not already loaded
+
+
+#run the regression
+model <- lm(A ~ B + C + D, data=E) #A is the target, B,C,D are the predictors, E is the dataset
+
+#Check the mean of the residuals
+mean(model$residuals) 
+
+#Check the residuals for constant variance. Not all four plots relate to this assumption.
+par(mfrow=c(2,2))
+plot(model)
+
+#Check that the residuals and the predictor variables are uncorrelated
+cor.test(E$F, model$residuals) #E is the dataset and F is one of the predictor variables. Run this for each your predictor variables
+
+#Check that the residuals have a normal distribution
+#One check is a Q-Q plot, which appears in the upper right corner of the plots made when checking for constant variance. Another option is to make a histogram of the residuals.
+resid <- data.frame(model$residuals)
+ggplot(resid, aes(x=model.residuals)) + 
+        geom_histogram(position="identity", col = 'black')
+
+```
+
+Run CHUNK 13 to load the AutoClaim dataset and summarize the variables.
+
+```{r warning = FALSE, message = FALSE}
+#CHUNK 13
+library(cplm)
+data(AutoClaim)
+summary(AutoClaim)
+```
+
+RUn CHUNK 14 to convert CLM_FLAG to 0 or 1 and set aside two variables of limited use.
+
+```{r}
+#CHUNK 14
+AutoClaim$CLM_FLAG_NUM <- ifelse(AutoClaim$CLM_FLAG == 'Yes', 1, 0)
+not_used_vars <- c('POLICYNO', 'IN_YY')
+```
+
+Run CHUNK 15 to create a function that provides a one-way plot of a categorical variable.
+
+```{r  One-way Plot}
+#CHUNK 15
+library(data.table)
+#the inputs are the dataset, the predictor (x), the target (y), and the weights, if any
+oneway_plot <- function(dataset, x, y, weight=NULL) 
+{
+  Weight = ifelse(is.null(weight), 1, dataset[,weight]) #sets the weights to 1 if none provided
+  modeldata <- data.frame(
+    Weight = Weight,
+    Actual = dataset[,y],
+    Factor = as.factor(dataset[,x]))
+  
+   dframe <- as.data.frame(data.table(modeldata)[ ,.(SumWeight = sum(Weight),
+                                                   SumActual = sum(Actual),
+                                                   AverageActual = sum(Actual)/sum(Weight)),
+                                                 by = Factor])
+    dframe <- dframe[order(dframe$Factor), ]
+  dframe.melt <- melt(dframe [, c(1, 4)], id = c("Factor"))
+  weight_max  <- max(dframe$SumWeight)
+  resp_max    <- max(dframe.melt$value)
+  
+  plot1 <- ggplot(dframe, aes(x=Factor, y=SumWeight, group = 1)) +
+    geom_bar(stat = "identity", aes(x = Factor, y = SumWeight*0.5*(resp_max)/(weight_max)),
+             col = "black", fill = "#9EB9D4") +
+    geom_line(data=dframe.melt, aes(x = Factor, y = value, color = variable, group = variable)) +
+    scale_colour_manual(values = c("red")) +
+    theme(axis.text.x = element_text(angle = 60, hjust = 1)) +
+    labs(title = paste("Oneway","-",x), x = "Values", y = "Target" )
+
+  return(list(dframe=dframe, plot_table = plot1))
+}
+# Note you can use plotly() instead to make interactive graphs
+
+# Example
+oneway_plot(dataset = AutoClaim, x = "RED_CAR",  y = "CLM_FLAG_NUM",weight = "NPOLICY")
+```
+
+Run CHUNK 16 to make all the plots for the categorical variables.
+
+```{r }
+#CHUNK 16
+categoricals <- c('CAR_USE', 'CAR_TYPE', 'REVOLKED', 'GENDER', 'MARRIED', 'PARENT1', 'JOBCLASS', 'MAX_EDUC', 'AREA')
+lapply(X = categoricals, FUN = function(x) {oneway_plot(dataset = AutoClaim, x = x, y = 'CLM_FLAG_NUM')})
+```
+
+Run CHUNK 17 to make an equal width bin for BLUEBOOK.`
+
+
+```{r equal width bins}
+#VHUNK 17
+AutoClaim$BLUEBOOK_BAND <- cut(x = AutoClaim$BLUEBOOK, 
+                               breaks = 10,
+                               ordered_result = TRUE)
+
+oneway_plot(dataset = AutoClaim, x = "BLUEBOOK_BAND",  y = "CLM_FLAG_NUM")
+```
+
+
+Run CHUNK 18 to make the other plots.
+
+```{r Answer - Investigate the other continuous variables}
+#CHUNK 18
+vars_to_band <- c("TRAVTIME","AGE","INCOME","RETAINED", "KIDSDRIV","SAMEHOME")
+for (vble in vars_to_band)
+{
+  newvar <- paste(vble,"BAND", sep = "_")
+  AutoClaim[,newvar] <-cut(x = AutoClaim[,vble],     breaks = 10,     ordered_result = TRUE)
+  }
+
+banded_vars <- c("TRAVTIME_BAND", "AGE_BAND","INCOME_BAND","RETAINED_BAND", "KIDSDRIV_BAND","SAMEHOME_BAND")
+lapply(X = banded_vars, FUN = function(x) {oneway_plot(dataset = AutoClaim, x = x, y = 'CLM_FLAG_NUM')})
+
+```
+
+Run CHUNK 19 to fit two GLMs. Note that the distribution function and link function are not specified. Choose one that makes sense to you for these initial models. Also, consider using other variables than those listed. There is no output.
+
+
+```{r Answer - Initial GLMs}
+#CHUNK 19
+
+glm.freq <- glm(formula = CLM_FLAG_NUM ~ AGE + GENDER + MARRIED + JOBCLASS + MAX_EDUC + BLUEBOOK,
+                 data = AutoClaim,
+                 family = poisson(link='log')) #xxx = poisson or binomial, yyy = log or logit. If binomial is used, an additional specification, weights=1 is needed
+
+glm.sev <- glm(formula = CLM_AMT5 ~ AGE + GENDER + MARRIED + CAR_USE + BLUEBOOK + CAR_TYPE + AREA,
+               # Keeping only observations with positive claim amounts
+                 data = AutoClaim[which(AutoClaim$CLM_AMT5 > 0), ],
+                 family = Gamma(link='log')) #zzz = Gamma or inverse.gaussian
+```
+
+Run CHUNK 20 to see the summary for your fitted frequency model.
+
+```{r}
+#CHUNK 20
+summary(glm.freq)
+```
+
+Run CHUNK 21 to see the exponentiated coefficients. These represent the muliplicative effect of a unit change in the variable.
+  
+```{r}
+#CHUNK 21
+exp(coef(glm.freq))
+```
+  
+Run CHUNK 22 to obtain confidence intervals for the exponentiated coefficients.
+
+```{r}
+#CHUNK 22
+exp(confint.default(glm.freq))
+```
+
+Run CHUNK 23 to examine a reduced model.
+
+```{r}
+#CHUNK 23
+# Removed MAX_EDUC
+glm.freq2 <- glm(formula = CLM_FLAG_NUM ~ AGE + GENDER + MARRIED + JOBCLASS + BLUEBOOK,
+                 data = AutoClaim,
+                 family = poisson(link='log')) #insert your earlier specifications
+
+# anova(object, ..., dispersion = NULL, test = NULL)
+  # test - "Chisq", "LRT", "Rao", "F" or "Cp"
+anova(glm.freq, glm.freq2, test = "LRT")
+```
+
+Run CHUNK 24 to use AIC.
+
+```{r}
+#CHUNK 24
+AIC(glm.freq, glm.freq2)
+drop1(glm.freq) #AIC is the default
+```
+
+Run CHUNK 25 to see some residual plots for the model we have been using. This may produce different results depending on what your selected model is at this stage, but the point being made will still apply.
+
+```{r}
+#CHUNK 25
+library(gridExtra)
+p1 <- qplot(x = glm.sev$fitted.values, y = residuals(glm.sev))
+p2 <- qplot(x = glm.freq$fitted.values, y = residuals(glm.freq))
+grid.arrange(p1, p2, ncol = 2)
+```
+
+Chunks 26 and 27 provide function to make "crunch residuals" and then display them for the current frequency model.
+
+```{r}
+#CHUNK 26
+# Mean residual (actual - predicted)
+crunch_residual <- function(dataset, model, target, size = 50) {
+  x  <- dataset[, target]
+  x1 <- model$fitted.values
+  y <- as.data.frame(cbind(x, x1))
+  
+  y <- y[order(x1), ]
+  test <- setDT(y)[, as.list(colMeans(.SD)), by = gl(ceiling(nrow(y)/size), size, nrow(y))]
+  test$res <- test$x - test$x1
+
+  qplot(y = test$res, x = test$x1, ylab = "Residual", xlab = "Fitted Value", main = "Crunch Residual")
+}
+
+crunch_residual(dataset = AutoClaim, 
+                model = glm.freq,
+                target = 'CLM_FLAG_NUM', 
+                size = 50)
+```
+
+```{r}
+#CHUNK 27
+# Deviance
+crunch_residual2 <- function(dataset, model, target, size = 50) {
+  r  <- model$residuals
+  x1 <- model$fitted.values
+  y <- as.data.frame(cbind(r, x1))
+  
+  y <- y[order(x1), ]
+  test <- setDT(y)[, as.list(colMeans(.SD)), by = gl(ceiling(nrow(y)/size), size, nrow(y))]
+
+  qplot(y = test$r, x = test$x1, ylab = "Residual", xlab = "Fitted Value", main = "Crunch Residual")
+}
+
+crunch_residual2(dataset = AutoClaim, 
+                model = glm.freq,
+                target = 'CLM_FLAG_NUM', 
+                size = 50)
+```
+
+CHUNK 28 provides some additional diagnostic plots.
+
+```{r}
+#CHUNK 28
+#glm.diag.plots(glm.sev, glmdiag=glm.diag(glm.sev))
+par(mfrow = c(2, 2))
+plot(glm.sev)
+```
+
+Run CHUNK 29 to load the example data and plot it.
+
+```{r}
+#CHUNK 29
+# Read in some data
+intDatf <- read.csv(file = "interactionData.csv")
+
+# If we plot the log of the  response variable (actual), we can see that relationship between
+#   age and the response is different for males and females
+ggplot(intDatf, aes(x = age, y = log(actual), color = gender)) + geom_line()
+
+```
+
+Run CHUNK 30 to fit a linear model without interaction.
+
+```{r}
+#CHUNK 30
+glm.main.only <- glm('actual ~ gender + age', intDatf, family = Gamma(link = 'log'))
+
+# The parameter estimates are significant (no surprise)
+summary(glm.main.only)
+
+# First, we add the predctions to the data
+intDatf$pred_main_only <- predict(glm.main.only, intDatf, type = 'response')
+
+# Then we compare the predictions from our main effects only model to the actuals
+# These lines are parallel because the influence of age (ie the slope) is independent
+#   of gender.  Clearly, this differs from the actual relationships.
+ggplot(intDatf) +
+    geom_line(aes(x = age, y = log(pred_main_only), color = gender)) +
+    geom_line(linetype = 2, aes(x = age, y = log(actual), color = gender))
+```
+
+Now run CHUNK 31 to fit a model with interaction.
+
+```{r}
+#CHUNK 31
+#Note than when specifiying the interaction term gender*age, the model automatically includes gender and age as main effects
+glm.interact <- glm('actual ~ gender*age', intDatf, family = Gamma(link = 'log'))
+
+summary(glm.interact)
+
+# Furthermore, we can test the significance of our interaction using an analysis of deviance
+anova(glm.interact)
+
+# Or calculate the change in AIC between the two models (with and without the interaction)
+AIC(glm.interact) - AIC(glm.main.only)
+
+# Now we can see the slope adjustment introduced by the interaction term
+intDatf$pred_interact <- predict(glm.interact, intDatf, type = 'response')
+
+ggplot(intDatf) +
+    geom_line(aes(x = age, y = log(pred_interact), color = gender)) +
+    geom_line(linetype = 2, aes(x = age, y = log(actual), color = gender))
+```
+
+CHUNK 32 provides a function that prepares a lift chart.
+
+```{r}
+#CHUNK 32
+plot.fit.oneway <- function(df, var, exposure, response, fit) 
+{
+  modeldata <- data.frame(Weight = df[[exposure]],
+                          Actual = df[[response]],
+                          Fit = df[[fit]],
+                          Factor = df[[var]])
+  
+  dframe <- as.data.frame(data.table(modeldata)[,.(SumWeight = sum(Weight)
+                                                   ,SumActual = sum(Actual)
+                                                   ,SumFit  = sum(Fit)
+                                                   ,AverageActual = sum(Actual)/sum(Weight)
+                                                   ,AverageFit = sum(Fit)/sum(Weight))
+                                                ,by = Factor])
+  
+  dframe <- dframe[order(dframe$Factor), ]
+  dframe.melt <- melt(dframe [, c(1, 5, 6)], id = c("Factor"))
+  weight_max <<- max(dframe$SumWeight)
+  resp_max <<- max(dframe.melt$value)
+  
+  plot2 <- ggplot(dframe, aes(x = Factor, y = SumWeight, group=1)) +
+    geom_bar(stat = "identity", aes(x = Factor, y = SumWeight*0.5*(resp_max)/(weight_max)), col = "#09091A", fill = "#1FBAD6") +
+    geom_line(data = dframe.melt, aes(x = Factor, y = value, colour = variable, group = variable)) +
+    scale_colour_manual(values = c("red", "blue", "black")) +
+    theme(axis.text.x = element_text(angle = 60, hjust = 1)) +
+    labs(title = paste(var,"Oneway"), x = var,  y = "Response") 
+  #+ geom_text(data=dframe.melt, aes(x=Factor, y = value, label = round(value, digits = 3), vjust = 9))
+  
+  return(list(dframe=dframe,plot=plot2))
+}
+
+AutoClaim$YHAT <- glm.freq$fitted.values
+AutoClaim$expo <- rep(1, nrow(AutoClaim))
+
+
+# Example
+plot.fit.oneway(AutoClaim, 'CAR_TYPE', 'expo', 'CLM_FLAG_NUM', 'YHAT')
+plot.fit.oneway(AutoClaim, 'AGE', 'expo', 'CLM_FLAG_NUM', 'YHAT')
+plot.fit.oneway(AutoClaim, 'GENDER', 'expo', 'CLM_FLAG_NUM', 'YHAT')
+```
+
+Use CHUNK 33 to make a two-way plot.
+
+```{r}
+#CHUNK 33
+plot.fit.twoway <- function(df,response, exposure = NULL, var1, var2){
+  #### Plots a two-way response/exposure chart, allowing only a single response - it is straightforward to add the second response if required (i.e. to compare actual vs fitted on a single graph)
+  #### Requires:
+  #### - df - a data frame
+  #### - response - name of numeric column in df to plot
+  #### - exposure - name of numeric column in df to use as exposure
+  #### - var1 - name of factor column in df for x-axis
+  #### - var2 - name of factor column in df, shown as multiple lines/bars - note this must be a factor (banding must be completed prior to using in function)
+  #### Plots line/bar chart by factor1 x factor2:
+  #### - Lines: sum(df[,response])/sum(df[,exposure])
+  #### - Bars: sum(df[,exposure])
+  
+  
+  ## If exposure not given, do count
+  if (is.null(exposure)){
+    exposure <- "Count"
+    df$Count <- 1
+  }
+  
+  ## Crunch data
+  df$wt <- df[,exposure]
+  df$value <- df[,response]
+  df.crunch <- as.data.frame(data.table(df)[,.(value=sum(value),
+                                               wt=sum(wt))
+                                            ,by = c(var1,var2)])
+  
+  ## Crunch weight 1-way
+  df.crunch.1way <- as.data.frame(data.table(df)[,.(wt=sum(wt))
+                                                 ,by = c(var1)])
+  
+  ## Average response
+  resp.avg <- sum(df.crunch$value)/sum(df.crunch$wt)
+  
+  ## Convert value to average
+  df.crunch$value <- df.crunch$value/df.crunch$wt
+  
+  ## Rescale weight so that max == line.avg
+  df.crunch$wt_rescaled <- df.crunch$wt * resp.avg / max(df.crunch.1way$wt)
+  
+  df.crunch <- df.crunch[order(df.crunch[,var1],df.crunch[,var2]),]
+  
+  
+  ## Plot a chart
+  plot.twoway <- ggplot(df.crunch)+
+    geom_bar(stat="identity", aes_string(x=var1,y="wt_rescaled",fill=var2,group=var2),col="white",alpha=0.3)+
+    geom_line(aes_string(x=var1,y="value",colour=var2,group=var2))+
+    geom_point(aes_string(x=var1,y="value",colour=var2,group=var2))+
+    theme(axis.text.x = element_text(angle = 60, hjust = 1))+
+    labs(y = "value" )
+  
+  return(plot.twoway)
+}
+
+plot.fit.twoway(df = AutoClaim, var1 = 'AGE', var2 = 'GENDER', exposure = 'expo', response = 'YHAT')
+plot.fit.twoway(df = AutoClaim, var1 = 'CAR_TYPE', var2 = 'GENDER', exposure = 'expo', response = 'YHAT')
+```
+
+Run CHUNK 34 to make an overall lift chart. Because we need equal exposure bins, a function is provided to do that. Note that the extra work is needed only when there are unequal exposures, else we could just divide the dataset into equal number of rows.
+
+```{r}
+#CHUNK 34
+equalexposurecut <- function(nbins, weight, factor, miss=NA, sensitivity=1)
+{
+  if (!is.na(miss)){factor[factor==miss]=NA}
+  sort <- order(factor)
+  factor.sort <- factor[sort]
+  weight.sort <- weight[sort]
+  weight.cum <- cumsum(weight.sort)
+  weight.sum <- max(weight.cum[!is.na(factor.sort)])
+  weight.sumna <- max(weight.cum)
+  weight.bands <- cut(weight.cum,c(seq(0,weight.sum,(weight.sum/nbins)),weight.sumna+sensitivity))
+  levels(weight.bands)<-(1:length(levels(weight.bands)))
+  fac_breaks <- vector(length = nbins + 1)
+  fac_breaks[1] <- min(factor[!is.na(factor)])-sensitivity
+  fac_labels <- vector(length = nbins + 1)
+  for (i in 1:nbins){
+    fac_breaks[i+1] <- max(max(factor.sort[weight.bands==i]),fac_breaks[i]+sensitivity)
+
+  }
+  factor_bin <- cut(factor, fac_breaks)
+  levels(factor_bin)<-c(levels(factor_bin),"NA")
+  factor_bin[is.na(factor_bin)]=levels(factor_bin)[length(levels(factor_bin))]
+  return(factor_bin)
+}
+
+
+PlotLiftChart <- function(data, predicted, actual, weight, nbin) {
+  plotdata <- data[,c(predicted,actual,weight)]
+  plotdata[,paste0(predicted,"_BAND")] <- equalexposurecut(nbins = nbin, weight = plotdata[,weight], factor = plotdata[,predicted], sensitivity = 0.001)
+  print(head(plotdata))
+  plot.fit.oneway(df = plotdata, var = paste0(predicted,"_BAND"), exposure = weight, response = actual, fit = predicted)
+}
+
+# Note we are looking at glm.freq model here
+AutoClaim$YHAT <- glm.freq$fitted.values
+
+PlotLiftChart(data = AutoClaim, predicted = 'YHAT', actual = 'CLM_FLAG_NUM', weight = 'expo', nbin = 100)
+```
+
+Run CHUNKs 35 and 36 to create a double lift chart.
+
+```{r}
+#CHUNK 35
+PlotDoubleLiftChart <- function(data,Predicted1,Predicted2,Actual,Weight,banding = c(0,seq(0.75,1.25,0.05),10)) {
+  # Compares predicted values of 2 models against each other and actual, plotted by model differences
+  ## Inputs;
+  #    - data: data frame including the predicted and weight fields
+  #    - Predicted1/Predicted2/Actual/Weight: strings giving the names of the model prediction, observed and exposure fields.
+  #    - banding: vector of cut points for banding the x-axis (Predicted1/Predicted2)
+  modeldata <- data.frame(
+    Weight = data[,Weight],
+    Predicted1 = data[,Predicted1],
+    Predicted2 = data[,Predicted2],
+    Actual = data[,Actual],
+    ModelDifference = cut(data[,Predicted1]/data[,Predicted2],banding))
+
+  dframe <- as.data.frame(data.table(modeldata)[,
+                                                 .(SumWeight = sum(Weight)
+                                                  ,SumActual = sum(Actual)
+                                                  ,SumFitted1 = sum(Predicted1)
+                                                  ,SumFitted2 = sum(Predicted2)
+                                                  ,AverageActual = sum(Actual)/sum(Weight)
+                                                  ,Model1 = sum(Predicted1)/sum(Weight)
+                                                  ,Model2 = sum(Predicted2)/sum(Weight))
+                                                ,by = ModelDifference
+                                                ])
+  
+  dframe <- dframe[order(dframe$Model1 ),];
+  
+  cols <- colnames(dframe)
+  cols[6] <- Actual
+  cols[7] <- Predicted1
+  cols[8] <- Predicted2
+  
+  colnames(dframe) <- cols
+  
+  dframe.melt <- melt(dframe [,c(1,6,7,8)],id=c("ModelDifference"))
+  weight_max <<- max(dframe$SumWeight)
+  resp_max <<- max(dframe.melt$value)
+
+  plot1<-ggplot(dframe , aes(x=ModelDifference,y=SumWeight,group=1))+
+    geom_bar(stat="identity",aes(x=ModelDifference,y=SumWeight*0.3*(resp_max)/(weight_max)),col="black",fill="yellow")+
+    geom_line(data=dframe.melt,aes(x=ModelDifference,y=value,colour=variable,group=variable))+
+    scale_colour_manual(values=c("red","blue","black"))+
+    theme(axis.text.x = element_text(angle = 60, hjust = 1))+
+    labs(title = paste("Double Lift Chart"), x = "Model Difference", y = "Fitted" )
+  # used substitute(data) to put name in
+  return(list(dframe=dframe,plot=plot1))
+}
+
+PlotDoubleLiftChart_EqExp <- function(data,Predicted1,Predicted2,Actual,Weight,bins = 50) {
+  factor <- data[,Predicted1] / data[,Predicted2]
+  Breaks <- equalexposurecut(bins,data[,Weight],factor,miss=NA,sensitivity=0.000001)
+  PlotDoubleLiftChart(data,Predicted1,Predicted2,Actual,Weight,c(0,Breaks,1000000))
+}
+```
+
+```{r}
+#CHUNK 36A
+AutoClaim$Pred1 <- glm.freq$fitted.values
+AutoClaim$Pred2 <- glm.freq2$fitted.values
+
+PlotDoubleLiftChart(AutoClaim, 'Pred1', 'Pred2', 'CLM_FLAG_NUM', 'expo', banding = c(0,seq(0.75,1.25,0.025), 20)) 
+```
+
+CHUNK 36B adds more variables.
+  
+```{r}
+#CHUNK 36B
+AutoClaim$Pred1 <- glm.freq$fitted.values
+
+# Add CAR_USE and CAR_TYPE
+glm.freq4 <- glm(formula = CLM_FLAG_NUM ~ AGE + GENDER + MARRIED + JOBCLASS + MAX_EDUC 
+                            + BLUEBOOK + CAR_USE + CAR_TYPE,
+                 data = AutoClaim,
+                 family = poisson(link='log'))
+
+AutoClaim$Pred2 <- glm.freq4$fitted.values
+
+PlotDoubleLiftChart(AutoClaim, 'Pred1', 'Pred2', 'CLM_FLAG_NUM', 'expo', banding = c(0,seq(0.5,2.0,0.05), 30)) 
+```
+  
